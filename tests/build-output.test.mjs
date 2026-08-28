@@ -45,3 +45,10 @@ test("phone layout uses safe areas, touch targets, dynamic viewport height, and 
   assert.match(xrScene, /\(pointer: coarse\)/);
   assert.match(xrScene, /coarsePointer \? "pan-y" : "none"/);
 });
+
+test("GitHub Pages assets are flattened to the project root when a prefix is configured", async () => {
+  if (!process.env.PAGES_BASE_PATH) return;
+  const prefixName = process.env.PAGES_BASE_PATH.replace(/^\//, "");
+  await access(new URL("dist/client/_next", root));
+  await assert.rejects(access(new URL(`dist/client/${prefixName}`, root)));
+});
