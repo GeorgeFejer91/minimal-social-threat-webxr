@@ -1,5 +1,10 @@
 # Project-memory changelog
 
+## 2026-08-28 — canonical GithubVR project location
+
+- Relocated the complete Git checkout from the temporary Codex output directory to `D:\GithubVR\github-projects\minimal-social-threat-webxr`.
+- Preserved the existing Git history and `origin` remote at `GeorgeFejer91/minimal-social-threat-webxr`.
+
 ## 2026-08-28 — schema v4 direct launch, human avatars, and spider threat
 
 - Removed the readiness checkbox and the separate WebXR-load gate. Added prominent Start 2D and Start immersive 3D controls; immersive entry requests its session directly from the click and starts/continues the shared trial.
