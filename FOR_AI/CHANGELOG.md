@@ -3,7 +3,7 @@
 ## 2026-08-28 — schema v4 direct launch, human avatars, and spider threat
 
 - Removed the readiness checkbox and the separate WebXR-load gate. Added prominent Start 2D and Start immersive 3D controls; immersive entry requests its session directly from the click and starts/continues the shared trial.
-- Prewarmed the lazy Three.js/WebXR renderer invisibly and kept browser-preview visibility independent from engine readiness.
+- Prewarmed the lazy Three.js/WebXR renderer invisibly on XR-capable browsers and kept browser-preview visibility independent from engine readiness; non-XR 2D browsers mount it only after an explicit preview request.
 - Started the data-only VDO.Ninja broadcast automatically on participant start and companion discovery automatically on companion-page entry; retained retry, stop, disconnect, source selection, and readback.
 - Added a versioned crowd-avatar style with the bundled CC BY 4.0 Cesium Man GLB in 3D and a project-authored human-proportioned 2D alternative.
 - Added a third, fading spider threat using the bundled CC0 Huntsman Spider GLB with a procedural fallback.

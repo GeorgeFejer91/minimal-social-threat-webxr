@@ -22,7 +22,7 @@ deterministic scenario evaluator
 - **Visual plane:** `ParticipantScene2D.tsx`, `XrScene.tsx`, and `TopdownScene.tsx` render only snapshot fields.
 - **Audio plane:** `lib/spatial-audio.ts` consumes snapshot audio cues, creates HRTF panners at authoritative source positions, and updates the listener from the XR camera during immersion.
 - **Control plane:** `StudyApp.tsx` owns direct 2D/immersive start, pause/reset/configuration, the local clock, audio opt-in, bounded logging, and application of companion commands. WebXR entry starts or continues the trial from the same click; right-controller A restarts/resumes and either trigger pauses.
-- **Asset plane:** `XrScene.tsx` loads the local Cesium Man and Huntsman Spider GLBs in the background, retaining procedural agents/spider as immediate fallbacks. `agentStyle` and threat identity remain snapshot state rather than renderer-private choices.
+- **Asset plane:** On an XR-capable browser—or after an explicit browser-preview request—`XrScene.tsx` loads the local Cesium Man and Huntsman Spider GLBs in the background, retaining procedural agents/spider as immediate fallbacks. A non-WebGL 2D browser never has to mount the renderer. `agentStyle` and threat identity remain snapshot state rather than renderer-private choices.
 - **Transport plane:** `lib/scene-sync.ts` carries schema-v4 state and a small command allowlist via the vendored VDO.Ninja SDK. Participant start starts broadcast; companion mode auto-starts discovery.
 
 ## Scenario sequence

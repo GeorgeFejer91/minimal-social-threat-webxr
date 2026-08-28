@@ -448,6 +448,7 @@ export default function StudyApp() {
     if (!xrSupport.vr && !xrSupport.ar) return "2D trial ready · immersive XR unavailable here";
     return `${xrSupport.vr ? "VR ready" : "VR unavailable"} · ${xrSupport.ar ? "MR ready" : "MR unavailable"}`;
   }, [xrSupport]);
+  const shouldMountXr = showXrPreview || xrSupport.vr || xrSupport.ar;
 
   const handleSessionChange = useCallback((active: boolean) => setXrActive(active), []);
   const handleXrStatus = useCallback((message: string) => setXrStatus(message), []);
@@ -585,18 +586,20 @@ export default function StudyApp() {
                 <div className="card-heading"><div><span>03</span><h2>Optional 3D / WebXR</h2></div><small>{xrActive ? "Immersive" : supportLabel}</small></div>
                 <p className="addon-copy">The 3D engine prepares automatically. Starting immersive mode directly enters VR and starts or continues the same trial clock.</p>
                 <div className={showXrPreview ? "mini-xr-preview" : "xr-prewarm"} aria-hidden={!showXrPreview}>
-                  <Suspense fallback={<div className="scene-loading" role="status">Preparing 3D scene…</div>}>
-                    <XrScene
-                      ref={xrRef}
-                      snapshot={scene}
-                      audioEngine={audioEngine}
-                      onReady={handleXrReady}
-                      onStartRequest={handleXrStart}
-                      onPauseRequest={handleXrPause}
-                      onSessionChange={handleSessionChange}
-                      onStatus={handleXrStatus}
-                    />
-                  </Suspense>
+                  {shouldMountXr && (
+                    <Suspense fallback={<div className="scene-loading" role="status">Preparing 3D scene…</div>}>
+                      <XrScene
+                        ref={xrRef}
+                        snapshot={scene}
+                        audioEngine={audioEngine}
+                        onReady={handleXrReady}
+                        onStartRequest={handleXrStart}
+                        onPauseRequest={handleXrPause}
+                        onSessionChange={handleSessionChange}
+                        onStatus={handleXrStatus}
+                      />
+                    </Suspense>
+                  )}
                 </div>
                 <button className="button link-button" type="button" aria-expanded={showXrPreview} disabled={xrActive} onClick={() => setShowXrPreview((current) => !current)}>{showXrPreview ? "Hide browser 3D preview" : "Show browser 3D preview"}</button>
                 <div className="immersive-buttons">
