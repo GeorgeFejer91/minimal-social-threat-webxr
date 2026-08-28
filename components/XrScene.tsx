@@ -19,6 +19,7 @@ export interface XrSceneHandle {
 
 interface XrSceneProps {
   snapshot: SceneSnapshot;
+  visible: boolean;
   audioEngine?: SpatialAudioEngine;
   onFrame(time: number): void;
   onReady(ready: boolean): void;
@@ -509,7 +510,7 @@ function makeBatchedForest(materials: ForestMaterials) {
 }
 
 const XrScene = forwardRef<XrSceneHandle, XrSceneProps>(function XrScene(
-  { snapshot, audioEngine, onFrame, onReady, onStartRequest, onPauseRequest, onSessionChange, onStatus },
+  { snapshot, visible, audioEngine, onFrame, onReady, onStartRequest, onPauseRequest, onSessionChange, onStatus },
   ref,
 ) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -868,6 +869,24 @@ const XrScene = forwardRef<XrSceneHandle, XrSceneProps>(function XrScene(
   useEffect(() => {
     if (!rendererRef.current?.xr.isPresenting) applyMode(snapshot.config.mode);
   }, [snapshot.config.mode]);
+
+  useEffect(() => {
+    if (!visible) return;
+    const host = hostRef.current;
+    const renderer = rendererRef.current;
+    const camera = cameraRef.current;
+    if (!host || !renderer || !camera || renderer.xr.isPresenting) return;
+    const resize = () => {
+      const rect = host.getBoundingClientRect();
+      camera.aspect = Math.max(0.1, rect.width / Math.max(1, rect.height));
+      camera.updateProjectionMatrix();
+      renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+      renderer.setSize(rect.width, rect.height, false);
+    };
+    resize();
+    const animationFrame = requestAnimationFrame(resize);
+    return () => cancelAnimationFrame(animationFrame);
+  }, [visible]);
 
   return <div ref={hostRef} className="xr-scene" aria-label="Interactive first-person preview of the social threat scenario" />;
 });

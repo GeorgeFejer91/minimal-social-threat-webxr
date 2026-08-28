@@ -47,9 +47,10 @@ test("phone layout uses safe areas, touch targets, dynamic viewport height, and 
 });
 
 test("main trial viewport switches between live 2D and 3D renderers", async () => {
-  const [studyApp, participantScene, css] = await Promise.all([
+  const [studyApp, participantScene, xrScene, css] = await Promise.all([
     readFile(new URL("components/StudyApp.tsx", root), "utf8"),
     readFile(new URL("components/ParticipantScene2D.tsx", root), "utf8"),
+    readFile(new URL("components/XrScene.tsx", root), "utf8"),
     readFile(new URL("app/globals.css", root), "utf8"),
   ]);
   assert.match(studyApp, /type AppView = "landing" \| "trial" \| "companion"/);
@@ -57,6 +58,7 @@ test("main trial viewport switches between live 2D and 3D renderers", async () =
   assert.match(studyApp, /const \[previewMode, setPreviewMode\] = useState<"2d" \| "3d">\("2d"\)/);
   assert.match(studyApp, /previewMode === "2d" && <ParticipantScene2D snapshot=\{scene\}/);
   assert.match(studyApp, /previewMode === "3d" \? "browser-xr-view" : "xr-prewarm"/);
+  assert.match(studyApp, /visible=\{previewMode === "3d"\}/);
   assert.match(studyApp, /aria-pressed=\{previewMode === "2d"\}[\s\S]*?2D view/);
   assert.match(studyApp, /aria-pressed=\{previewMode === "3d"\}[\s\S]*?3D view/);
   assert.match(studyApp, /Start preview/);
@@ -75,6 +77,7 @@ test("main trial viewport switches between live 2D and 3D renderers", async () =
   assert.match(css, /\.browser-xr-view/);
   assert.match(css, /\.scene-view-switch/);
   assert.match(css, /\.trial-transport/);
+  assert.match(xrScene, /if \(!visible\) return;[\s\S]*?renderer\.setSize\(rect\.width, rect\.height, false\);[\s\S]*?\}, \[visible\]\)/);
 });
 
 test("immersive launch uses XR frames, layers, local confirmation, and controller actions", async () => {

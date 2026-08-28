@@ -800,7 +800,7 @@ export default function StudyApp() {
     xrEngineReadyRef.current = ready;
     setXrEngineReady(ready);
     bumpHostRevision();
-    if (ready) setXrStatus((current) => current.startsWith("Preparing") ? "3D engine ready. Start immersive 3D directly or show the browser preview." : current);
+    if (ready) setXrStatus((current) => current.startsWith("Preparing") ? "3D engine ready. Use 3D view or start immersive 3D directly." : current);
   }, [bumpHostRevision]);
   const handleXrStart = useCallback(() => {
     if (!runtimeRef.current.running || isScenarioComplete(sceneRef.current)) {
@@ -887,6 +887,7 @@ export default function StudyApp() {
                       <XrScene
                         ref={xrRef}
                         snapshot={scene}
+                        visible={previewMode === "3d"}
                         audioEngine={audioEnabled ? audioEngine : undefined}
                         onFrame={advanceScenarioFrame}
                         onReady={handleXrReady}
@@ -1009,6 +1010,7 @@ export default function StudyApp() {
                   <Suspense fallback={<div className="scene-loading" role="status">Preparing 3D operator viewport…</div>}>
                     <XrScene
                       snapshot={remoteScene}
+                      visible
                       onFrame={ignoreFrame}
                       onReady={ignoreReady}
                       onStartRequest={ignoreRequest}
