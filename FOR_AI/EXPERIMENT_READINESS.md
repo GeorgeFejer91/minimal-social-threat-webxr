@@ -28,6 +28,8 @@
 
 For any website-affecting change, local validation is necessary but not sufficient. Completion requires a pushed source commit, a successful GitHub Pages publication tied to that exact source revision, and an HTTPS readback of every affected public route. GitHub Pages is the sole delivery target; ChatGPT Sites is not part of the gate. The current Pages configuration publishes the generated `gh-pages` branch, so a `main` push without a corresponding deployment does not pass this gate. Record failures or unavailable credentials as **implemented locally; deployment pending**.
 
+Public source `7346177` was packaged with the GitHub Pages base path and published as deployment commit `0ddf0e4`. A cache-busted HTTPS readback of `?view=trial&v=7346177` returned the current application and assets successfully. Interactive browser acceptance confirmed the large main-stage **2D view** and **3D view** controls, removal of the former mini-preview, scenario-clock advancement after **Start preview**, automatic activation of the complete generated cue schedule, and return to the inactive-audio state after **Reset**. The available verification browser intentionally exposed no WebGL, so it also confirmed the 2D fallback and explicit WebGL-unavailable status but could not visually judge the Three.js frame; current-source desktop-WebGL and physical-Quest rendering remain separate device checks.
+
 ## Required before study use
 
 1. Obtain the applicable ethics/IRB approval and define exclusion, withdrawal, and adverse-event procedures.

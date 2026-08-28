@@ -6,6 +6,7 @@
 - Replaced the small, buried browser-3D preview with a peer 2D/3D switch inside the large main trial stage. Both modes render the same authoritative snapshot and retain the same clock when switched.
 - Replaced the 2D-specific launch label with **Start preview**. That trusted local action automatically starts the complete generated HRTF cue schedule for either browser renderer, with no separate audio setting; reset/completion disposes the graph.
 - Kept immersive VR/MR controls separate because WebXR still requires a trusted headset action. Immersive entry continues to use the same cue schedule and XR-camera listener pose.
+- Passed 38 unit tests, 17 production/source checks, TypeScript, lint, and a GitHub-prefix production build. Published source `7346177` as `gh-pages` deployment `0ddf0e4`; cache-busted public interaction confirmed the new controls, running clock, automatic cue-schedule state, and Reset teardown. The available verification browser had WebGL disabled, so current-source Three.js visual judgment remains a desktop/Quest device check rather than a completed claim.
 
 ## 2026-08-29 — automatic immersive spatial audio
 
