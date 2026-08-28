@@ -1,5 +1,12 @@
 # Project-memory changelog
 
+## 2026-08-29 — automatic immersive spatial audio
+
+- Clarified the preceding “silent immersive default” request: spatial threat sound is now the built-in VR/MR behavior, not a separate participant setting. The non-immersive page remains silent.
+- Removed the spatial-audio toggle. The trusted local immersive action dispatches the WebXR request first and Web Audio startup second before awaiting either, preserving both activation boundaries; a remotely staged request still requires local headset confirmation.
+- Attached HRTF listener updates only during the immersive session and dispose the audio graph on entry failure or session exit so the application cannot leave background audio running afterward.
+- The live Android audio-service diagnosis remains valid: the continuous post-exit stream belonged to Meta VR Shell/Home, not Quest Browser. Automatic-audio headset acceptance for this new revision is still required before experimental use.
+
 ## 2026-08-29 — mandatory live website delivery
 
 - Added a durable completion gate for all website-affecting work: validate the change, commit and push its source to the canonical GitHub repository, publish that exact revision to GitHub Pages, and verify every affected public route.

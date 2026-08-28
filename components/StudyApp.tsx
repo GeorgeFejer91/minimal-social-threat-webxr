@@ -151,7 +151,6 @@ export default function StudyApp() {
   const [pendingXrRequest, setPendingXrRequest] = useState<PendingXrRequest | undefined>(undefined);
   const [hostRevision, setHostRevision] = useState(0);
   const [audioEnabled, setAudioEnabled] = useState(false);
-  const [audioStatus, setAudioStatus] = useState("Audio is off by default. Enable it deliberately before 2D or immersive playback.");
   const [broadcastState, setBroadcastState] = useState<Record<string, unknown>>({ phase: "idle", listenerCount: 0 });
   const broadcasterRef = useRef<SceneBroadcaster | undefined>(undefined);
   const logsRef = useRef<LogRow[]>([]);
@@ -577,33 +576,6 @@ export default function StudyApp() {
     });
   };
 
-  const silenceSpatialAudio = useCallback(() => {
-    void audioEngine.dispose();
-    setAudioEnabled(false);
-    setAudioStatus("Audio is off by default. Enable it deliberately before 2D or immersive playback.");
-  }, [audioEngine]);
-
-  const toggleSpatialAudio = async () => {
-    if (xrActiveRef.current) {
-      silenceSpatialAudio();
-      return;
-    }
-    if (audioEnabled) {
-      await audioEngine.dispose();
-      setAudioEnabled(false);
-      setAudioStatus("Audio is off by default. Enable it deliberately before 2D or immersive playback.");
-      return;
-    }
-    try {
-      await audioEngine.enable();
-      audioEngine.update(sceneRef.current);
-      setAudioEnabled(true);
-      setAudioStatus("HRTF threat audio armed for 2D and the next immersive session · begin at low device volume.");
-    } catch (error) {
-      setAudioStatus(error instanceof Error ? error.message : String(error));
-    }
-  };
-
   const startBroadcast = useCallback(async () => {
     try {
       await broadcasterRef.current?.start();
@@ -671,16 +643,34 @@ export default function StudyApp() {
       status: "pending",
       message: "Local confirmation received; waiting for the headset session-start event.",
     });
+    // Start both protected APIs inside the same trusted headset action. The XR
+    // request is dispatched first, and neither promise is awaited until both
+    // WebXR and Web Audio have received the local activation.
+    const sessionReady = xrRef.current.enter(mode);
+    const audioReady = audioEngine.enable()
+      .then(() => ({ enabled: true as const, error: "" }))
+      .catch((error: unknown) => ({
+        enabled: false as const,
+        error: error instanceof Error ? error.message : String(error),
+      }));
     try {
-      await xrRef.current.enter(mode);
+      await sessionReady;
+      const audio = await audioReady;
+      setAudioEnabled(audio.enabled);
+      if (audio.enabled) audioEngine.update(sceneRef.current);
       const nextConfig = { ...configRef.current, mode };
       configRef.current = nextConfig;
       setConfig(nextConfig);
       setShowXrPreview(true);
       if (!runtimeRef.current.running || isScenarioComplete(sceneRef.current)) startScenario(requestId ? "companion" : "trial");
       else if (runtimeRef.current.paused) pauseScenario(requestId ? "companion" : "trial");
-      setXrStatus(`${mode === "passthrough" ? "Mixed-reality" : "Immersive 3D"} trial running ${audioEngine.enabled ? "with spatial audio" : "silently"}. A resumes/restarts; either trigger pauses.`);
+      setXrStatus(audio.enabled
+        ? `${mode === "passthrough" ? "Mixed-reality" : "Immersive 3D"} trial running with automatic spatial threat audio. A resumes/restarts; either trigger pauses.`
+        : `${mode === "passthrough" ? "Mixed-reality" : "Immersive 3D"} trial running, but spatial audio is unavailable: ${audio.error}`);
     } catch (error) {
+      await audioReady;
+      await audioEngine.dispose();
+      setAudioEnabled(false);
       const message = error instanceof Error ? error.message : String(error);
       setXrStatus(message);
       xrPhaseRef.current = "error";
@@ -775,6 +765,8 @@ export default function StudyApp() {
     }
     activeXrModeRef.current = undefined;
     setActiveXrMode(undefined);
+    void audioEngine.dispose();
+    setAudioEnabled(false);
     xrPhaseRef.current = "inline";
     setXrPhase("inline");
     appendLog("xr_session_end", "xr-system");
@@ -784,7 +776,7 @@ export default function StudyApp() {
       const applied = rebuildScene({ lastCommandId: exitRequestId, lastFrameAt: performance.now() });
       recordReceipt({ requestId: exitRequestId, action: "exit-xr", status: "confirmed" }, applied);
     } else bumpHostRevision();
-  }, [appendLog, bumpHostRevision, rebuildScene, recordReceipt]);
+  }, [appendLog, audioEngine, bumpHostRevision, rebuildScene, recordReceipt]);
   const handleXrStatus = useCallback((message: string) => setXrStatus(message), []);
   const handleXrReady = useCallback((ready: boolean) => {
     xrEngineReadyRef.current = ready;
@@ -924,17 +916,9 @@ export default function StudyApp() {
                 <p className="microcopy">Minimal and 2D human-proportioned faces share an evidence-grounded SVG morph system; procedural 3D faces use texture-free vector meshes conformed directly to the head sphere rather than a flat plate. The exact faces and transitions still require target-population validation. The human 3D option uses the CC BY 4.0 Cesium Man model. Avatar style does not change positions, timing, or behavior.</p>
               </section>
 
-              <section className="control-card audio-card">
-                <div className="card-heading"><div><span>02</span><h2>Spatial sound</h2></div><small className={audioEnabled ? "online" : ""}>{audioEnabled ? "HRTF on" : "Off"}</small></div>
-                <p className="addon-copy">The moving threat carries a PPS-derived 30 ms broadband burst train for localization, followed during its final three seconds by a methods-derived 70 Hz rough harmonic cue. HRTF direction follows the live 3D visual anchor—including the spider’s lower height—while relative distance level and propagation delay follow proximity.</p>
-                <button className={`button ${audioEnabled ? "ghost" : "link-button"}`} type="button" disabled={xrActive} onClick={() => void toggleSpatialAudio()}>{audioEnabled ? "Disable spatial audio" : "Enable spatial audio"}</button>
-                <p className="status-line" role="status">{audioStatus}</p>
-                <p className="microcopy">Audio never starts automatically or from a remote command. If enabled locally before entry, it remains spatialized in VR/MR from the live headset pose. The generated cues are traceable reconstructions/adaptations—not the authors’ original WAVs or a validated composite.</p>
-              </section>
-
               <section className="control-card xr-addon-card">
-                <div className="card-heading"><div><span>03</span><h2>Optional 3D / WebXR</h2></div><small>{xrActive ? `${activeXrMode === "passthrough" ? "MR" : "VR"} active` : xrPhase === "awaiting-local-confirmation" ? "Awaiting confirmation" : supportLabel}</small></div>
-                <p className="addon-copy">The 3D engine prepares automatically. Starting immersive mode directly enters VR and starts or continues the same trial clock.</p>
+                <div className="card-heading"><div><span>02</span><h2>Optional 3D / WebXR</h2></div><small>{xrActive ? `${activeXrMode === "passthrough" ? "MR" : "VR"} active` : xrPhase === "awaiting-local-confirmation" ? "Awaiting confirmation" : supportLabel}</small></div>
+                <p className="addon-copy">The 3D engine prepares automatically. Starting immersive mode directly enters VR, starts or continues the same trial clock, and enables scene-bound HRTF spatial audio. The audio graph closes when immersion ends, so the page does not leave background sound running.</p>
                 <div className={showXrPreview ? "mini-xr-preview" : "xr-prewarm"} aria-hidden={!showXrPreview}>
                   {shouldMountXr && (
                     <Suspense fallback={<div className="scene-loading" role="status">Preparing 3D scene…</div>}>

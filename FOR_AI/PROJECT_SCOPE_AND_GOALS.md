@@ -27,7 +27,7 @@ The same authoritative scene snapshot drives the 2D participant view, optional T
 - A deterministic dusk forest edge with varied broadleaf trees, conifers, branches, roots, shrubs, rocks, haze, and a visible central approach path. Full tree-canopy bounds stay outside the threat corridor in both 2D and WebXR.
 - Gentle 18-second or standard 12-second approach after the detection interval.
 - Four-second safety-distance hold and deterministic completion.
-- Captioned friendly dyadic cues and threat cues behind one local opt-in. Audio is off by default; enabling it before immersive entry deliberately carries the same authoritative cue schedule into VR/MR, where the listener follows the XR camera.
+- Captioned friendly dyadic cues and threat cues are silent outside immersion. The trusted local VR/MR entry action automatically starts the same authoritative HRTF cue schedule, with no separate audio setting; the listener follows the XR camera and the graph closes on session exit.
 - The threat cue is split into auditable layers: a PPS Kit-derived broadband burst-train localizer across approach and a methods-derived three-second 70 Hz rough harmonic cue at final approach. Web Audio HRTF owns direction from a visual-kind-specific 3D anchor (1.55 m for upright threats; 0.42 m for the spider), a manual −18→0 dB law owns relative distance level, and `distance / 343 m/s` owns propagation delay. No recorded scream is bundled.
 - Data-only VDO.Ninja v2 operator synchronization, bounded command receipts and XR readback, and bounded CSV export; scenario snapshots use schema v5 and carry the audio-protocol identity.
 
@@ -47,7 +47,7 @@ The same authoritative scene snapshot drives the 2D participant view, optional T
 - A participant can configure, directly start, pause, reset, and complete the 2D trial on a smartphone without a checkbox gate.
 - Supported headsets can directly start VR and, when supported, passthrough MR over HTTPS; an active 2D run can continue with its elapsed time preserved.
 - Agents visibly face partners, alternate roles, move asynchronously, react at different times, and avoid the threat.
-- The default trial is silent. Deliberately enabled headphone audio is HRTF-positioned in 2D and WebXR; immersive entry does not silently enable it, and the control cannot be changed after XR starts.
+- The non-immersive trial is silent. A trusted local VR/MR entry automatically enables HRTF scene audio without a separate control, and leaving immersion tears it down so the browser page does not keep background audio running.
 - The threat never crosses 1.8 m in the authoritative state.
 - A separately opened PC operator browser auto-discovers the data-only VDO.Ninja scene, can receive the full versioned scene and host runtime state, and can issue only allowlisted commands with exact bounded receipts.
 - The dedicated headset role advertises itself before the scenario starts; PC start/pause/resume/reset and configuration changes are reflected on both displays, while local headset/controller actions return through the same authoritative readback.

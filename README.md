@@ -1,6 +1,6 @@
 # Minimal Social Threat 2D + WebXR
 
-A deterministic social-threat research prototype with a phone-first 2D trial, optional HRTF spatial audio, and optional WebXR:
+A deterministic social-threat research prototype with a phone-first 2D trial and optional WebXR with automatic HRTF spatial audio:
 
 **Live site:** https://georgefejer91.github.io/minimal-social-threat-webxr/
 
@@ -8,7 +8,7 @@ A deterministic social-threat research prototype with a phone-first 2D trial, op
 
 - **2D trial:** twelve minimalist or human-proportioned agents form six conversational dyads in a large crowd entirely in front of the observer. Choose a fading shrouded shadow, visible angry agent, or fading articulated spider as the approaching threat.
 - **Facial expressions:** one renderer-neutral cubic-Bézier/SVG library defines neutral, happiness, sadness, fear, anger, surprise, and disgust end states, supports smooth all-pairs and weighted blends, and drives the live calm→alert→fear sequence. Every endpoint ships as standalone planar and equirectangular SVG. Procedural WebXR faces are tessellated directly from those SVG curves into sphere-conforming vector meshes—there is no flat face plate or facial bitmap texture. The geometry is FACS-informed and evidence-grounded, but the exact stylization and transitions are not independently validated.
-- **Spatial audio:** the application is silent by default. A deliberate pre-entry opt-in enables the same scene-bound audio in 2D or WebXR. During approach, a PPS Kit-derived 30 ms broadband burst train supplies repeated localization onsets; the final three seconds add a methods-derived 500–4000 Hz harmonic sound with full-depth 70 Hz modulation. Web Audio HRTF panning, a threat-kind-specific vertical anchor, a controlled relative-level ramp, and propagation delay follow the live threat coordinates. These generated layers are traceable adaptations, not the authors' original WAVs or an independently validated combined stimulus.
+- **Spatial audio:** entering VR/MR from the headset's local immersive action automatically enables the scene-bound HRTF audio; there is no separate audio setting. The graph closes when immersion ends, and the non-immersive page does not keep background audio running. During approach, a PPS Kit-derived 30 ms broadband burst train supplies repeated localization onsets; the final three seconds add a methods-derived 500–4000 Hz harmonic sound with full-depth 70 Hz modulation. Web Audio HRTF panning, a threat-kind-specific vertical anchor, a controlled relative-level ramp, and propagation delay follow the live threat coordinates. These generated layers are traceable adaptations, not the authors' original WAVs or an independently validated combined stimulus.
 - **Optional WebXR:** the lazy Three.js engine prewarms automatically. A local headset action directly enters VR and starts or continues the same trial; passthrough MR remains available where supported. A PC can request VR or MR, but WebXR requires a trusted local user activation, so the headset presents a conspicuous **Confirm** action rather than entering immersion silently.
 - **PC operator view:** a realtime top-down or 3D reconstruction from authoritative scene state, full versioned scenario controls, XR request/exit controls, command receipts, and host/XR readback. The dedicated headset route starts its data-only VDO.Ninja host automatically; the separately opened operator view auto-discovers it.
 
@@ -27,7 +27,7 @@ This repository is a **stimulus-building prototype**, not a pre-validated paradi
 - device/browser compatibility and cultural or population-specific interpretation.
 - facial-expression identity, intensity, transition naturalness, common category confusions, and recognition at actual 2D/XR crowd distance.
 
-The threat has a code-tested **1.8 m minimum distance**. After an 8-second social baseline and 3-second detection interval, “Gentle” takes 18 seconds to approach and “Standard” takes 12 seconds. The immersive launch button starts/continues the trial; right-controller A restarts/resumes, while phone controls, either XR controller trigger, and the companion can pause. Audio remains off unless enabled locally before entry. Digital limiting and the −18→0 dB relative ramp do not establish a safe sound-pressure level; begin at low volume and calibrate physical output before participant use.
+The threat has a code-tested **1.8 m minimum distance**. After an 8-second social baseline and 3-second detection interval, “Gentle” takes 18 seconds to approach and “Standard” takes 12 seconds. The immersive launch button starts/continues the trial and its local trusted action also starts the spatial-audio graph; right-controller A restarts/resumes, while phone controls, either XR controller trigger, and the companion can pause. Leaving immersion closes the graph. Digital limiting and the −18→0 dB relative ramp do not establish a safe sound-pressure level; begin at low volume and calibrate physical output before participant use.
 
 ## Threat-audio protocol
 
@@ -140,7 +140,7 @@ The 2026-08-28 Quest 3 / Quest Browser 149 smoke pass for source `3825279` cover
 - `lib/facial-expression.ts` — FACS-informed SVG geometry, all-pairs/weighted morphing, Canvas drawing, and spherical projection math.
 - `public/assets/faces/` — generated, resolution-independent planar and spherical SVG endpoints plus their asset manifest.
 - `scripts/generate-face-assets.mjs` — deterministic generator for the committed endpoint SVG library.
-- `lib/spatial-audio.ts` — opt-in HRTF rendering of project-authored social cues and separated PPS/roughness threat layers.
+- `lib/spatial-audio.ts` — immersive-session HRTF rendering of project-authored social cues and separated PPS/roughness threat layers.
 - `lib/scene-sync.ts` — VDO.Ninja transport, codec, discovery, command validation, and stale handling.
 - `components/TopdownScene.tsx` — companion canvas renderer.
 - `components/StudyApp.tsx` — experiment UI, authority application, logging, and routing.

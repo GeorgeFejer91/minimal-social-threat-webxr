@@ -84,7 +84,8 @@ test("immersive launch uses XR frames, layers, local confirmation, and controlle
   assert.match(studyApp, /onFrame=\{advanceScenarioFrame\}/);
   assert.match(studyApp, /if \(!xrActiveRef\.current\) advanceScenarioFrame\(now\)/);
   assert.match(xrScene, /if \(renderer\.xr\.isPresenting\) frameRef\.current\(time\)/);
-  assert.match(studyApp, /await xrRef\.current\.enter\(mode\)/);
+  assert.match(studyApp, /const sessionReady = xrRef\.current\.enter\(mode\)/);
+  assert.match(studyApp, /await sessionReady/);
   assert.match(xrScene, /navigator\.xr\.requestSession/);
   assert.match(xrScene, /optionalFeatures: mode === "passthrough" \? \["layers", "dom-overlay"\] : \["layers"\]/);
   assert.match(studyApp, /Local headset confirmation required/);
@@ -141,14 +142,15 @@ test("spatial threat audio separates PPS localization, 70 Hz roughness, and cont
   assert.match(audio, /\[3 \/ 2, 0\.18\]/);
 });
 
-test("immersive audio is off by default and requires deliberate pre-entry opt-in", async () => {
+test("immersive entry automatically owns spatial audio without a separate setting", async () => {
   const study = await readFile(new URL("components/StudyApp.tsx", root), "utf8");
   assert.match(study, /const \[audioEnabled, setAudioEnabled\] = useState\(false\)/);
-  assert.match(study, /const silenceSpatialAudio = useCallback\([\s\S]*?audioEngine\.dispose\(\)[\s\S]*?setAudioEnabled\(false\)/);
-  assert.match(study, /if \(!audioEnabled\) return;[\s\S]*?if \(!xrActive\) audioEngine\.setListenerPose[\s\S]*?audioEngine\.update\(scene\)/);
+  assert.match(study, /const sessionReady = xrRef\.current\.enter\(mode\);[\s\S]*?const audioReady = audioEngine\.enable\(\)/);
+  assert.match(study, /await sessionReady;[\s\S]*?await audioReady;[\s\S]*?setAudioEnabled\(audio\.enabled\)/);
+  assert.match(study, /void audioEngine\.dispose\(\);[\s\S]*?setAudioEnabled\(false\);[\s\S]*?xrPhaseRef\.current = "inline"/);
   assert.match(study, /audioEngine=\{audioEnabled \? audioEngine : undefined\}/);
-  assert.doesNotMatch(study, /const enterImmersive = useCallback[\s\S]*?silenceSpatialAudio\(\)[\s\S]*?await xrRef\.current\.enter\(mode\)/);
-  assert.match(study, /Audio never starts automatically or from a remote command/);
+  assert.doesNotMatch(study, /Enable spatial audio|Disable spatial audio|toggleSpatialAudio/);
+  assert.match(study, /enables scene-bound HRTF spatial audio/);
 });
 
 test("external human and retained spider reference assets are pinned and shipped locally", async () => {
