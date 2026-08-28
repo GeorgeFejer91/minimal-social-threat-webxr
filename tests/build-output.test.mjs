@@ -26,7 +26,7 @@ test("vendored VDO.Ninja SDK 1.5.5 files retain the Affect Tracker hashes", asyn
 });
 
 test("application source cannot request microphone or camera capture", async () => {
-  const files = ["components/StudyApp.tsx", "components/ParticipantScene2D.tsx", "components/XrScene.tsx", "lib/scene-sync.ts"];
+  const files = ["components/StudyApp.tsx", "components/ParticipantScene2D.tsx", "components/XrScene.tsx", "lib/scene-sync.ts", "lib/spatial-audio.ts"];
   const source = (await Promise.all(files.map((file) => readFile(new URL(file, root), "utf8")))).join("\n");
   assert.doesNotMatch(source, /getUserMedia|mediaDevices|audio:\s*true|video:\s*true/);
   assert.match(source, /audio: false, video: false/);
@@ -70,4 +70,23 @@ test("GitHub Pages assets are flattened to the project root when a prefix is con
   const prefixName = process.env.PAGES_BASE_PATH.replace(/^\//, "");
   await access(new URL("dist/client/_next", root));
   await assert.rejects(access(new URL(`dist/client/${prefixName}`, root)));
+});
+
+test("spatial threat audio uses HRTF panning and the documented roughness modulation", async () => {
+  const audio = await readFile(new URL("lib/spatial-audio.ts", root), "utf8");
+  assert.match(audio, /panningModel = "HRTF"/);
+  assert.match(audio, /modulator\.frequency\.value = 70/);
+  assert.match(audio, /distanceModel = "inverse"/);
+});
+
+test("first-read project memory and social preview are shipped", async () => {
+  const [agents, memory, bibliography] = await Promise.all([
+    readFile(new URL("AGENTS.md", root), "utf8"),
+    readFile(new URL("FOR_AI/README.md", root), "utf8"),
+    readFile(new URL("FOR_AI/documentation/BIBLIOGRAPHY.md", root), "utf8"),
+  ]);
+  assert.match(agents, /FOR_AI\/README\.md/);
+  assert.match(memory, /Required reading order/);
+  assert.match(bibliography, /10\.1038\/s41598-020-79767-0/);
+  await access(new URL("public/og.png", root));
 });

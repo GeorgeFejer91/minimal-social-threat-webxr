@@ -80,6 +80,20 @@ export function TopdownScene({ snapshot, stale = false }: TopdownSceneProps) {
         context.lineWidth = 3;
         context.beginPath(); context.moveTo(threat.x, threat.y); context.lineTo(viewer.x, viewer.y); context.stroke();
 
+        const agentById = new Map(snapshot.agents.map((agent) => [agent.id, agent]));
+        for (const link of snapshot.socialLinks) {
+          const source = agentById.get(link.sourceId);
+          const target = agentById.get(link.targetId);
+          if (!source || !target) continue;
+          const from = point(source.x, source.z);
+          const to = point(target.x, target.z);
+          context.setLineDash(link.kind === "alarm" ? [3, 4] : [6, 5]);
+          context.strokeStyle = link.kind === "alarm" ? "rgba(255, 161, 112, .56)" : "rgba(134, 211, 178, .32)";
+          context.lineWidth = link.kind === "alarm" ? 2 : 1.5;
+          context.beginPath(); context.moveTo(from.x, from.y); context.lineTo(to.x, to.y); context.stroke();
+        }
+        context.setLineDash([]);
+
         for (const agent of snapshot.agents) {
           const p = point(agent.x, agent.z);
           const color = agent.expression === "afraid" ? "#f4c778" : agent.expression === "alert" ? "#b7df91" : "#89cdb6";
@@ -91,17 +105,21 @@ export function TopdownScene({ snapshot, stale = false }: TopdownSceneProps) {
           context.moveTo(p.x, p.y);
           context.lineTo(p.x + Math.sin(agent.yaw) * 17, p.y + Math.cos(agent.yaw) * 17);
           context.stroke();
+          context.fillStyle = "rgba(235, 255, 246, .82)";
+          context.font = "700 8px system-ui";
+          context.textAlign = "center";
+          context.fillText(agent.behavior.toUpperCase(), p.x, p.y + 22);
         }
 
-        context.fillStyle = snapshot.threat.kind === "tiger" ? "#ff8a42" : "#ef6262";
-        context.beginPath(); context.arc(threat.x, threat.y, 15, 0, Math.PI * 2); context.fill();
-        context.strokeStyle = "#2a1111";
-        context.lineWidth = 3;
+        context.fillStyle = snapshot.threat.kind === "shadow" ? "rgba(2, 2, 8, .94)" : "#ef6262";
+        context.beginPath(); context.arc(threat.x, threat.y, snapshot.threat.kind === "shadow" ? 18 : 15, 0, Math.PI * 2); context.fill();
+        context.strokeStyle = snapshot.threat.kind === "shadow" ? "#ff453a" : "#2a1111";
+        context.lineWidth = snapshot.threat.kind === "shadow" ? 2 : 3;
         context.beginPath(); context.moveTo(threat.x - 7, threat.y - 3); context.lineTo(threat.x - 2, threat.y); context.stroke();
         context.beginPath(); context.moveTo(threat.x + 7, threat.y - 3); context.lineTo(threat.x + 2, threat.y); context.stroke();
         context.fillStyle = "#fff2dc";
         context.font = "700 11px system-ui";
-        context.fillText(snapshot.threat.kind === "tiger" ? "TIGER" : "THREAT", threat.x, threat.y - 23);
+        context.fillText(snapshot.threat.kind === "shadow" ? "SHADOW" : "THREAT", threat.x, threat.y - 25);
 
         context.fillStyle = "rgba(6, 20, 17, .86)";
         roundRect(context, 14, 14, 168, 58, 13);

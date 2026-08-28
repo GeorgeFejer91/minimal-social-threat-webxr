@@ -70,7 +70,7 @@ function drawAgent(
   agent: AgentState,
   index: number,
   project: (x: number, z: number) => { x: number; y: number; scale: number },
-  threat: SceneSnapshot["threat"],
+  snapshot: SceneSnapshot,
 ) {
   const point = project(agent.x, agent.z);
   const size = 43 * point.scale;
@@ -92,8 +92,8 @@ function drawAgent(
   drawFace(context, point.x, point.y, size, agent.expression);
 
   if (agent.expression === "afraid") {
-    const awayX = agent.x - threat.x;
-    const awayZ = agent.z - threat.z;
+    const awayX = agent.x - snapshot.threat.x;
+    const awayZ = agent.z - snapshot.threat.z;
     const length = Math.max(0.01, Math.hypot(awayX, awayZ));
     const cueX = (awayX / length) * size * 0.7;
     const cueY = (awayZ / length) * size * 0.32;
@@ -106,6 +106,19 @@ function drawAgent(
       context.stroke();
     }
   }
+
+  const cue = snapshot.audioCues.find((item) => item.sourceId === agent.id);
+  if (cue) {
+    const label = cue.text.length > 24 ? `${cue.text.slice(0, 23)}…` : cue.text;
+    context.font = `700 ${Math.max(8, size * 0.13)}px system-ui`;
+    const width = Math.min(150 * point.scale, context.measureText(label).width + size * 0.32);
+    context.fillStyle = "rgba(5, 21, 17, .9)";
+    roundedRect(context, point.x - width / 2, point.y - size * 0.9, width, size * 0.28, size * 0.1);
+    context.fillStyle = "#e9fff5";
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.fillText(label, point.x, point.y - size * 0.76, width - 6);
+  }
 }
 
 function drawThreat(
@@ -114,26 +127,53 @@ function drawThreat(
   project: (x: number, z: number) => { x: number; y: number; scale: number },
 ) {
   const point = project(snapshot.threat.x, snapshot.threat.z);
-  const size = 56 * point.scale;
-  const tiger = snapshot.threat.kind === "tiger";
+  const size = 62 * point.scale;
+  const shadow = snapshot.threat.kind === "shadow";
+
+  if (shadow) {
+    const aura = context.createRadialGradient(point.x, point.y + size * 0.15, size * 0.15, point.x, point.y + size * 0.15, size * 1.15);
+    aura.addColorStop(0, "rgba(4, 4, 8, .88)");
+    aura.addColorStop(0.55, "rgba(5, 4, 10, .54)");
+    aura.addColorStop(1, "rgba(3, 2, 8, 0)");
+    context.fillStyle = aura;
+    context.beginPath();
+    context.ellipse(point.x, point.y + size * 0.12, size * 1.05, size * 1.35, 0, 0, Math.PI * 2);
+    context.fill();
+
+    context.fillStyle = "rgba(6, 6, 11, .96)";
+    context.beginPath();
+    context.moveTo(point.x, point.y - size * 0.55);
+    context.bezierCurveTo(point.x - size * 0.54, point.y - size * 0.18, point.x - size * 0.58, point.y + size * 0.62, point.x - size * 0.77, point.y + size * 0.98);
+    context.bezierCurveTo(point.x - size * 0.24, point.y + size * 0.84, point.x + size * 0.22, point.y + size * 1.08, point.x + size * 0.75, point.y + size * 0.94);
+    context.bezierCurveTo(point.x + size * 0.53, point.y + size * 0.54, point.x + size * 0.48, point.y - size * 0.16, point.x, point.y - size * 0.55);
+    context.fill();
+    context.fillStyle = "#030407";
+    context.beginPath(); context.arc(point.x, point.y - size * 0.2, size * 0.36, 0, Math.PI * 2); context.fill();
+
+    context.shadowColor = "#ff2c2c";
+    context.shadowBlur = Math.max(5, size * 0.2);
+    context.fillStyle = "#ff4b3e";
+    context.beginPath(); context.ellipse(point.x - size * 0.13, point.y - size * 0.23, size * 0.055, size * 0.035, -0.12, 0, Math.PI * 2); context.fill();
+    context.beginPath(); context.ellipse(point.x + size * 0.13, point.y - size * 0.23, size * 0.055, size * 0.035, 0.12, 0, Math.PI * 2); context.fill();
+    context.shadowBlur = 0;
+
+    context.fillStyle = "rgba(5, 5, 9, .82)";
+    roundedRect(context, point.x - size * 0.52, point.y - size * 0.9, size * 1.04, size * 0.24, size * 0.12);
+    context.fillStyle = "#ffd3ce";
+    context.font = `800 ${Math.max(8, size * 0.13)}px system-ui`;
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.fillText("SHADOW", point.x, point.y - size * 0.78);
+    return;
+  }
 
   context.fillStyle = "rgba(25, 7, 4, .34)";
   context.beginPath();
   context.ellipse(point.x, point.y + size * 0.83, size * 0.53, size * 0.14, 0, 0, Math.PI * 2);
   context.fill();
 
-  context.fillStyle = tiger ? "#f28a45" : "#e76565";
+  context.fillStyle = "#e76565";
   roundedRect(context, point.x - size * 0.42, point.y + size * 0.25, size * 0.84, size * 0.72, size * 0.28);
-  if (tiger) {
-    context.beginPath();
-    context.moveTo(point.x - size * 0.4, point.y - size * 0.2);
-    context.lineTo(point.x - size * 0.23, point.y - size * 0.56);
-    context.lineTo(point.x - size * 0.05, point.y - size * 0.28);
-    context.moveTo(point.x + size * 0.4, point.y - size * 0.2);
-    context.lineTo(point.x + size * 0.23, point.y - size * 0.56);
-    context.lineTo(point.x + size * 0.05, point.y - size * 0.28);
-    context.fill();
-  }
   context.beginPath();
   context.arc(point.x, point.y, size * 0.48, 0, Math.PI * 2);
   context.fill();
@@ -141,16 +181,6 @@ function drawThreat(
   context.lineWidth = Math.max(1, size * 0.035);
   context.stroke();
 
-  if (tiger) {
-    context.strokeStyle = "#5b2b1e";
-    context.lineWidth = Math.max(2, size * 0.055);
-    for (const offset of [-0.22, 0, 0.22]) {
-      context.beginPath();
-      context.moveTo(point.x + size * offset, point.y - size * 0.43);
-      context.lineTo(point.x + size * offset * 0.55, point.y - size * 0.22);
-      context.stroke();
-    }
-  }
   drawFace(context, point.x, point.y, size, "angry");
 
   context.fillStyle = "rgba(22, 7, 5, .82)";
@@ -159,7 +189,7 @@ function drawThreat(
   context.font = `800 ${Math.max(8, size * 0.14)}px system-ui`;
   context.textAlign = "center";
   context.textBaseline = "middle";
-  context.fillText(tiger ? "TIGER" : "THREAT", point.x, point.y - size * 0.71);
+  context.fillText("THREAT", point.x, point.y - size * 0.71);
 }
 
 export function ParticipantScene2D({ snapshot }: ParticipantScene2DProps) {
@@ -259,7 +289,7 @@ export function ParticipantScene2D({ snapshot }: ParticipantScene2DProps) {
         { z: snapshot.threat.z, kind: "threat" as const },
       ].sort((a, b) => a.z - b.z);
       for (const entity of entities) {
-        if (entity.kind === "agent") drawAgent(context, entity.agent, entity.index, project, snapshot.threat);
+        if (entity.kind === "agent") drawAgent(context, entity.agent, entity.index, project, snapshot);
         else drawThreat(context, snapshot, project);
       }
 
@@ -297,7 +327,7 @@ export function ParticipantScene2D({ snapshot }: ParticipantScene2DProps) {
       ref={canvasRef}
       className="participant-canvas"
       role="img"
-      aria-label={`Two-dimensional trial scene. ${snapshot.agents.filter((agent) => agent.expression === "afraid").length} of six agents show fear. The ${snapshot.threat.kind === "tiger" ? "tiger" : "angry agent"} is ${snapshot.threat.distance.toFixed(1)} metres away.`}
+      aria-label={`Two-dimensional trial scene. ${snapshot.agents.filter((agent) => agent.expression === "afraid").length} of six agents show fear. The ${snapshot.threat.kind === "shadow" ? "shrouded shadow" : "angry agent"} is ${snapshot.threat.distance.toFixed(1)} metres away.`}
     />
   );
 }

@@ -7,6 +7,7 @@ import { TopdownScene } from "./TopdownScene";
 import {
   evaluateScenario,
   isScenarioComplete,
+  scenarioDurationMs,
   type Intensity,
   type ScenarioConfig,
   type SceneMode,
@@ -14,13 +15,14 @@ import {
   type ThreatKind,
 } from "../lib/scenario";
 import { SceneBroadcaster, SceneReceiver, type SceneCommand } from "../lib/scene-sync";
+import { SpatialAudioEngine } from "../lib/spatial-audio";
 
 type AppView = "landing" | "trial" | "companion";
 
 const XrScene = lazy(() => import("./XrScene"));
 
 const DEFAULT_CONFIG: ScenarioConfig = {
-  threatKind: "tiger",
+  threatKind: "shadow",
   intensity: "gentle",
   mode: "virtual",
   loop: false,
@@ -97,11 +99,14 @@ export default function StudyApp() {
   const sessionIdRef = useRef(sessionId);
   const sceneRef = useRef(scene);
   const xrRef = useRef<XrSceneHandle>(null);
+  const [audioEngine] = useState(() => new SpatialAudioEngine());
   const [xrActive, setXrActive] = useState(false);
   const [showXrPreview, setShowXrPreview] = useState(false);
   const [xrStatus, setXrStatus] = useState("Optional 3D/WebXR view is not loaded.");
   const [xrSupport, setXrSupport] = useState({ vr: false, ar: false, checked: false });
   const [contentReady, setContentReady] = useState(false);
+  const [audioEnabled, setAudioEnabled] = useState(false);
+  const [audioStatus, setAudioStatus] = useState("Audio is off. Headphones are recommended for HRTF spatialization.");
   const [broadcastState, setBroadcastState] = useState<Record<string, unknown>>({ phase: "idle", listenerCount: 0 });
   const broadcasterRef = useRef<SceneBroadcaster | undefined>(undefined);
   const logsRef = useRef<LogRow[]>([]);
@@ -120,6 +125,13 @@ export default function StudyApp() {
   useEffect(() => { configRef.current = config; }, [config]);
   useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
   useEffect(() => { sceneRef.current = scene; }, [scene]);
+
+  useEffect(() => () => { void audioEngine.dispose(); }, [audioEngine]);
+
+  useEffect(() => {
+    if (!xrActive) audioEngine.setListenerPose(0, 1.6, 0, 0, 0, -1, 0, 1, 0);
+    audioEngine.update(scene);
+  }, [audioEngine, scene, xrActive]);
 
   const navigate = useCallback((next: AppView) => {
     setView(next);
@@ -187,6 +199,7 @@ export default function StudyApp() {
   }, []);
 
   const startScenario = useCallback((source: LogRow["source"] = "local") => {
+    if (audioEngine.enabled) void audioEngine.enable();
     const id = anonymousId("session");
     setSessionId(id);
     sessionIdRef.current = id;
@@ -198,7 +211,7 @@ export default function StudyApp() {
     sceneRef.current = next;
     setScene(next);
     appendLog("scenario_start", source, next);
-  }, [appendLog]);
+  }, [appendLog, audioEngine]);
 
   const resetScenario = useCallback((source: LogRow["source"] = "local") => {
     runtimeRef.current = { elapsedMs: 0, running: false, paused: false, lastFrameAt: performance.now(), lastCommandId: runtimeRef.current.lastCommandId };
@@ -322,6 +335,23 @@ export default function StudyApp() {
     setConfig((current) => ({ ...current, [key]: value }));
   };
 
+  const toggleSpatialAudio = async () => {
+    if (audioEnabled) {
+      await audioEngine.dispose();
+      setAudioEnabled(false);
+      setAudioStatus("Audio is off. Headphones are recommended for HRTF spatialization.");
+      return;
+    }
+    try {
+      await audioEngine.enable();
+      audioEngine.update(sceneRef.current);
+      setAudioEnabled(true);
+      setAudioStatus("HRTF audio enabled · begin at low device volume.");
+    } catch (error) {
+      setAudioStatus(error instanceof Error ? error.message : String(error));
+    }
+  };
+
   const enterImmersive = async (mode: SceneMode) => {
     if (!contentReady) {
       setXrStatus("Review and acknowledge the content note before starting.");
@@ -380,7 +410,8 @@ export default function StudyApp() {
   const connectionReadout = broadcastPhase === "broadcasting"
     ? `${listenerCount} companion${listenerCount === 1 ? "" : "s"} · ${String(broadcastState.route ?? "waiting")}`
     : broadcastPhase;
-  const phaseProgress = Math.min(100, (scene.elapsedMs / (scene.config.intensity === "gentle" ? 29_000 : 23_000)) * 100);
+  const phaseProgress = Math.min(100, (scene.elapsedMs / scenarioDurationMs(scene.config.intensity)) * 100);
+  const activeDialogue = scene.audioCues.find((cue) => cue.sourceId !== "threat");
 
   const supportLabel = useMemo(() => {
     if (!xrSupport.checked) return "Checking immersive support…";
@@ -404,8 +435,8 @@ export default function StudyApp() {
             <p className="eyebrow"><span /> Minimal social-agent study kit</p>
             <h1>Run the social encounter<br />on any screen.</h1>
             <p className="hero-lede">
-              Six emoji-like agents surround an observer. A visible threat approaches, the group detects it,
-              looks afraid, and moves away. Run the complete 2D trial on a phone or browser; VR and passthrough MR are optional add-ons.
+              Six game-like agents wander, form conversations, exchange gaze, and surround an observer. A shrouded shadow approaches;
+              alarm spreads unevenly through the group before they avoid it. Run the complete 2D trial on a phone or browser, with optional spatial audio, VR, and passthrough MR.
             </p>
             <div className="hero-actions">
               <button className="button primary" type="button" onClick={() => navigate("trial")}>Start the 2D trial <span>→</span></button>
@@ -413,7 +444,7 @@ export default function StudyApp() {
             </div>
             <dl className="hero-facts">
               <div><dt>2D</dt><dd>phone first</dd></div>
-              <div><dt>6</dt><dd>social agents</dd></div>
+                <div><dt>3</dt><dd>social dyads</dd></div>
               <div><dt>1.8 m</dt><dd>hard threat limit</dd></div>
             </dl>
           </div>
@@ -450,6 +481,7 @@ export default function StudyApp() {
                 </div>
                 <div className="scene-overlay bottom-progress"><span style={{ width: `${phaseProgress}%` }} /></div>
                 <div className="scene-overlay safety-readout">Threat <strong>{scene.threat.distance.toFixed(1)} m</strong></div>
+                {activeDialogue && <div className="scene-overlay dialogue-readout"><strong>{activeDialogue.sourceId.replace("agent-", "Agent ").toUpperCase()}</strong><span>{activeDialogue.text}</span></div>}
               </section>
 
               <section className="trial-control-dock" aria-label="Trial controls">
@@ -468,7 +500,7 @@ export default function StudyApp() {
                 <div className="field-grid">
                   <label>Threat
                     <select value={config.threatKind} disabled={xrActive || (scene.running && !isScenarioComplete(scene))} onChange={(event) => updateConfig("threatKind", event.target.value as ThreatKind)}>
-                      <option value="tiger">Stylized tiger</option>
+                      <option value="shadow">Shrouded shadow</option>
                       <option value="angry-agent">Angry agent</option>
                     </select>
                   </label>
@@ -489,8 +521,16 @@ export default function StudyApp() {
                 <p className="microcopy">The phone view uses the same positions, expressions, timing, safety distance, logging, and companion readback as the XR add-on.</p>
               </section>
 
+              <section className="control-card audio-card">
+                <div className="card-heading"><div><span>02</span><h2>Spatial sound</h2></div><small className={audioEnabled ? "online" : ""}>{audioEnabled ? "HRTF on" : "Off"}</small></div>
+                <p className="addon-copy">Agent vocal cues and the approaching shadow are rendered from their scene positions. The threat uses a reproducible 70 Hz roughness modulation; it is not a calibrated clinical stimulus.</p>
+                <button className={`button ${audioEnabled ? "ghost" : "link-button"}`} type="button" onClick={() => void toggleSpatialAudio()}>{audioEnabled ? "Disable spatial audio" : "Enable spatial audio"}</button>
+                <p className="status-line" role="status">{audioStatus}</p>
+                <p className="microcopy">Use headphones, begin at low volume, and measure the actual output level before participant use. Captions carry the dialogue semantics; the current generated voices are non-lexical prototypes.</p>
+              </section>
+
               <section className="control-card xr-addon-card">
-                <div className="card-heading"><div><span>02</span><h2>Optional 3D / WebXR</h2></div><small>{xrActive ? "Immersive" : supportLabel}</small></div>
+                <div className="card-heading"><div><span>03</span><h2>Optional 3D / WebXR</h2></div><small>{xrActive ? "Immersive" : supportLabel}</small></div>
                 <p className="addon-copy">Load this only when you want the orbitable 3D preview, headset VR, or passthrough MR. The 2D trial above is complete on its own.</p>
                 {!showXrPreview ? (
                   <button className="button link-button" type="button" aria-expanded="false" onClick={() => { setShowXrPreview(true); setXrStatus("3D preview ready. Immersive WebXR requires a supported HTTPS browser."); }}>Load optional 3D / WebXR view</button>
@@ -501,6 +541,7 @@ export default function StudyApp() {
                         <XrScene
                           ref={xrRef}
                           snapshot={scene}
+                          audioEngine={audioEngine}
                           onPauseRequest={handleXrPause}
                           onSessionChange={handleSessionChange}
                           onStatus={handleXrStatus}
@@ -518,7 +559,7 @@ export default function StudyApp() {
               </section>
 
               <section className="control-card link-card">
-                <div className="card-heading"><div><span>03</span><h2>Companion link</h2></div><small className={broadcastPhase === "broadcasting" ? "online" : ""}>{connectionReadout}</small></div>
+                <div className="card-heading"><div><span>04</span><h2>Companion link</h2></div><small className={broadcastPhase === "broadcasting" ? "online" : ""}>{connectionReadout}</small></div>
                 {broadcastPhase !== "broadcasting" ? (
                   <button className="button link-button" type="button" onClick={() => void startBroadcast()}>Start scene broadcast</button>
                 ) : (
@@ -588,8 +629,8 @@ export default function StudyApp() {
                 </div>
                 <div className="field-grid remote-fields">
                   <label>Threat
-                    <select value={remoteScene?.config.threatKind ?? "tiger"} disabled={receiverState.phase !== "live" || Boolean(pendingCommand) || Boolean(remoteScene?.running && remoteScene.phase !== "complete")} onChange={(event) => sendCommand({ action: "set-threat", value: event.target.value as ThreatKind })}>
-                      <option value="tiger">Stylized tiger</option><option value="angry-agent">Angry agent</option>
+                    <select value={remoteScene?.config.threatKind ?? "shadow"} disabled={receiverState.phase !== "live" || Boolean(pendingCommand) || Boolean(remoteScene?.running && remoteScene.phase !== "complete")} onChange={(event) => sendCommand({ action: "set-threat", value: event.target.value as ThreatKind })}>
+                      <option value="shadow">Shrouded shadow</option><option value="angry-agent">Angry agent</option>
                     </select>
                   </label>
                   <label>Intensity
@@ -610,7 +651,7 @@ export default function StudyApp() {
         </section>
       )}
 
-      <footer><span>Social Threat Lab · schema v1</span><span>Phone-first 2D trial · optional WebXR · VDO.Ninja SDK 1.5.5</span></footer>
+      <footer><span>Social Threat Lab · schema v2</span><span>Social dyads · HRTF audio · optional WebXR · VDO.Ninja SDK 1.5.5</span></footer>
     </main>
   );
 }

@@ -4,6 +4,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import type { Expression, SceneMode, SceneSnapshot, ThreatKind } from "../lib/scenario";
+import type { SpatialAudioEngine } from "../lib/spatial-audio";
 
 export interface XrSceneHandle {
   enter(mode: SceneMode): Promise<void>;
@@ -12,6 +13,7 @@ export interface XrSceneHandle {
 
 interface XrSceneProps {
   snapshot: SceneSnapshot;
+  audioEngine?: SpatialAudioEngine;
   onPauseRequest(): void;
   onSessionChange(active: boolean, mode?: SceneMode): void;
   onStatus(message: string): void;
@@ -24,25 +26,13 @@ function faceTexture(expression: Expression | "angry", color: string, threatKind
   const context = canvas.getContext("2d")!;
   context.clearRect(0, 0, 256, 256);
 
-  if (threatKind === "tiger") {
-    context.fillStyle = "#ff9147";
-    context.beginPath(); context.moveTo(44, 65); context.lineTo(62, 8); context.lineTo(105, 47); context.closePath(); context.fill();
-    context.beginPath(); context.moveTo(212, 65); context.lineTo(194, 8); context.lineTo(151, 47); context.closePath(); context.fill();
-  }
   context.fillStyle = color;
   context.beginPath(); context.arc(128, 128, 96, 0, Math.PI * 2); context.fill();
   context.strokeStyle = "rgba(14, 28, 24, .42)";
   context.lineWidth = 8;
   context.stroke();
 
-  if (threatKind === "tiger") {
-    context.fillStyle = "#1f201a";
-    for (const x of [78, 128, 178]) {
-      context.beginPath(); context.moveTo(x - 12, 37); context.lineTo(x, 78); context.lineTo(x + 12, 37); context.closePath(); context.fill();
-    }
-    context.fillStyle = "#fff0d8";
-    context.beginPath(); context.ellipse(128, 151, 48, 38, 0, 0, Math.PI * 2); context.fill();
-  }
+  void threatKind;
 
   context.strokeStyle = "#17231e";
   context.fillStyle = "#17231e";
@@ -88,7 +78,27 @@ function informationTexture() {
   context.fillText("Either controller trigger pauses", 384, 70);
   context.fillStyle = "#b4d4c5";
   context.font = "500 28px system-ui";
-  context.fillText("Threat stops at the marked safety distance", 384, 116);
+  context.fillText("Use headphones · threat stops at the marked limit", 384, 116);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
+function dialogueTexture(text: string) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 640;
+  canvas.height = 150;
+  const context = canvas.getContext("2d")!;
+  context.fillStyle = "rgba(5, 20, 17, .9)";
+  context.beginPath(); context.roundRect(8, 8, 624, 134, 32); context.fill();
+  context.strokeStyle = "rgba(205, 244, 225, .25)";
+  context.lineWidth = 4;
+  context.stroke();
+  context.fillStyle = "#effff7";
+  context.font = "700 38px system-ui";
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.fillText(text, 320, 76, 570);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   return texture;
@@ -97,26 +107,105 @@ function informationTexture() {
 function makeAgent(color: string) {
   const group = new THREE.Group();
   const body = new THREE.Mesh(
-    new THREE.CapsuleGeometry(0.32, 0.58, 5, 10),
+    new THREE.CapsuleGeometry(0.29, 0.58, 5, 10),
     new THREE.MeshStandardMaterial({ color, roughness: 0.92 }),
   );
-  body.position.y = 0.63;
+  body.position.y = 0.82;
   group.add(body);
-  const face = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, depthWrite: false }));
-  face.position.y = 1.46;
-  face.scale.set(0.86, 0.86, 1);
+
+  const head = new THREE.Group();
+  head.position.y = 1.53;
+  const headMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(0.34, 16, 12),
+    new THREE.MeshStandardMaterial({ color, roughness: 0.88 }),
+  );
+  head.add(headMesh);
+  const face = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.58, 0.58),
+    new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, side: THREE.FrontSide }),
+  );
+  face.position.z = 0.323;
   face.userData.isFace = true;
-  group.add(face);
+  head.add(face);
+  group.add(head);
+
+  const limbMaterial = new THREE.MeshStandardMaterial({ color, roughness: 0.95 });
+  const makeArm = (side: number) => {
+    const pivot = new THREE.Group();
+    pivot.position.set(side * 0.34, 1.14, 0);
+    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.085, 0.42, 4, 7), limbMaterial);
+    arm.position.y = -0.24;
+    pivot.add(arm);
+    group.add(pivot);
+    return pivot;
+  };
+  const leftArm = makeArm(-1);
+  const rightArm = makeArm(1);
+  const dialogue = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, depthWrite: false }));
+  dialogue.position.y = 2.18;
+  dialogue.scale.set(1.55, 0.36, 1);
+  dialogue.visible = false;
+  group.add(dialogue);
+
+  group.userData.body = body;
+  group.userData.head = head;
+  group.userData.face = face;
+  group.userData.leftArm = leftArm;
+  group.userData.rightArm = rightArm;
+  group.userData.dialogue = dialogue;
   return group;
 }
 
+function makeThreat() {
+  const root = new THREE.Group();
+
+  const shadow = new THREE.Group();
+  const cloak = new THREE.Mesh(
+    new THREE.ConeGeometry(0.82, 1.9, 18, 1, true),
+    new THREE.MeshStandardMaterial({ color: 0x030308, roughness: 1, transparent: true, opacity: 0.94, side: THREE.DoubleSide }),
+  );
+  cloak.position.y = 0.88;
+  shadow.add(cloak);
+  const hood = new THREE.Mesh(
+    new THREE.SphereGeometry(0.42, 18, 12),
+    new THREE.MeshStandardMaterial({ color: 0x020207, roughness: 1 }),
+  );
+  hood.position.y = 1.67;
+  shadow.add(hood);
+  const aura = new THREE.Mesh(
+    new THREE.SphereGeometry(1.03, 18, 12),
+    new THREE.MeshBasicMaterial({ color: 0x080712, transparent: true, opacity: 0.16, side: THREE.BackSide, depthWrite: false }),
+  );
+  aura.position.y = 1.03;
+  aura.scale.y = 1.35;
+  shadow.add(aura);
+  const eyeMaterial = new THREE.MeshBasicMaterial({ color: 0xff3c32 });
+  for (const side of [-1, 1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.045, 10, 8), eyeMaterial);
+    eye.position.set(side * 0.13, 1.72, 0.37);
+    shadow.add(eye);
+  }
+  root.add(shadow);
+
+  const angryAgent = makeAgent("#c55252");
+  angryAgent.visible = false;
+  angryAgent.scale.setScalar(1.16);
+  root.add(angryAgent);
+  root.userData.shadow = shadow;
+  root.userData.aura = aura;
+  root.userData.eyeMaterial = eyeMaterial;
+  root.userData.angryAgent = angryAgent;
+  return root;
+}
+
 const XrScene = forwardRef<XrSceneHandle, XrSceneProps>(function XrScene(
-  { snapshot, onPauseRequest, onSessionChange, onStatus },
+  { snapshot, audioEngine, onPauseRequest, onSessionChange, onStatus },
   ref,
 ) {
   const hostRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef(snapshot);
   const pauseRef = useRef(onPauseRequest);
+  const audioRef = useRef(audioEngine);
   const rendererRef = useRef<THREE.WebGLRenderer | undefined>(undefined);
   const sceneRef = useRef<THREE.Scene | undefined>(undefined);
   const cameraRef = useRef<THREE.PerspectiveCamera | undefined>(undefined);
@@ -129,6 +218,7 @@ const XrScene = forwardRef<XrSceneHandle, XrSceneProps>(function XrScene(
 
   useEffect(() => { stateRef.current = snapshot; }, [snapshot]);
   useEffect(() => { pauseRef.current = onPauseRequest; }, [onPauseRequest]);
+  useEffect(() => { audioRef.current = audioEngine; }, [audioEngine]);
 
   function texture(key: string, create: () => THREE.Texture) {
     if (!textureCache.current.has(key)) textureCache.current.set(key, create());
@@ -244,8 +334,7 @@ const XrScene = forwardRef<XrSceneHandle, XrSceneProps>(function XrScene(
       scene.add(agent);
       agentRefs.current.set(agentState.id, agent);
     }
-    const threat = makeAgent("#c55252");
-    threat.scale.setScalar(1.3);
+    const threat = makeThreat();
     scene.add(threat);
     threatRef.current = threat;
 
@@ -282,33 +371,76 @@ const XrScene = forwardRef<XrSceneHandle, XrSceneProps>(function XrScene(
     resize();
     applyMode(stateRef.current.config.mode);
 
+    const listenerPosition = new THREE.Vector3();
+    const listenerQuaternion = new THREE.Quaternion();
+    const listenerForward = new THREE.Vector3();
+    const listenerUp = new THREE.Vector3();
+
     renderer.setAnimationLoop((time) => {
       const state = stateRef.current;
       for (const agentState of state.agents) {
         const agent = agentRefs.current.get(agentState.id);
         if (!agent) continue;
-        agent.position.set(agentState.x, 0, agentState.z);
+        const gaitWave = Math.sin(agentState.gait * Math.PI * 2);
+        const moving = agentState.behavior === "meander" || agentState.behavior === "flee";
+        const bob = moving ? Math.abs(gaitWave) * (agentState.behavior === "flee" ? 0.07 : 0.025) : 0;
+        agent.position.set(agentState.x, bob, agentState.z);
         agent.rotation.y = agentState.yaw;
-        const face = agent.children.find((child) => child.userData.isFace) as THREE.Sprite | undefined;
+        const face = agent.userData.face as THREE.Mesh | undefined;
         if (face) {
           const keyName = `${agent.userData.color}-${agentState.expression}`;
-          (face.material as THREE.SpriteMaterial).map = texture(keyName, () => faceTexture(agentState.expression, agent.userData.color));
-          (face.material as THREE.SpriteMaterial).needsUpdate = true;
+          (face.material as THREE.MeshBasicMaterial).map = texture(keyName, () => faceTexture(agentState.expression, agent.userData.color));
+          (face.material as THREE.MeshBasicMaterial).needsUpdate = true;
+        }
+        const leftArm = agent.userData.leftArm as THREE.Group;
+        const rightArm = agent.userData.rightArm as THREE.Group;
+        const head = agent.userData.head as THREE.Group;
+        leftArm.rotation.x = moving ? gaitWave * 0.58 : agentState.behavior === "startle" ? -0.9 : 0;
+        rightArm.rotation.x = moving ? -gaitWave * 0.58 : agentState.behavior === "startle" ? -0.9 : 0;
+        rightArm.rotation.z = agentState.behavior === "talk" ? -0.36 - Math.sin(agentState.gesture * Math.PI * 2) * 0.2 : 0;
+        leftArm.rotation.z = agentState.behavior === "startle" ? 0.52 : 0;
+        head.rotation.x = agentState.behavior === "listen" ? Math.sin(agentState.gesture * Math.PI * 2) * 0.08 : agentState.fear * 0.12;
+        head.rotation.z = agentState.behavior === "listen" ? 0.08 : 0;
+
+        const dialogue = agent.userData.dialogue as THREE.Sprite;
+        const cue = state.audioCues.find((item) => item.sourceId === agentState.id);
+        dialogue.visible = Boolean(cue);
+        if (cue) {
+          (dialogue.material as THREE.SpriteMaterial).map = texture(`dialogue-${cue.text}`, () => dialogueTexture(cue.text));
+          (dialogue.material as THREE.SpriteMaterial).needsUpdate = true;
         }
         const fearPulse = agentState.expression === "afraid" ? 1 + Math.sin(time * 0.015 + agentState.x) * 0.035 : 1;
         agent.scale.set(fearPulse, fearPulse, fearPulse);
       }
       if (threatRef.current) {
         const threatState = state.threat;
-        threatRef.current.position.set(threatState.x, 0, threatState.z);
-        const face = threatRef.current.children.find((child) => child.userData.isFace) as THREE.Sprite | undefined;
-        if (face) {
-          const keyName = `threat-${threatState.kind}`;
-          (face.material as THREE.SpriteMaterial).map = texture(keyName, () => faceTexture("angry", threatState.kind === "tiger" ? "#ff9147" : "#e45d5d", threatState.kind));
-          (face.material as THREE.SpriteMaterial).needsUpdate = true;
+        const threat = threatRef.current;
+        threat.position.set(threatState.x, 0, threatState.z);
+        const shadow = threat.userData.shadow as THREE.Group;
+        const angryAgent = threat.userData.angryAgent as THREE.Group;
+        shadow.visible = threatState.kind === "shadow";
+        angryAgent.visible = threatState.kind === "angry-agent";
+        if (angryAgent.visible) {
+          const face = angryAgent.userData.face as THREE.Mesh;
+          (face.material as THREE.MeshBasicMaterial).map = texture("threat-angry", () => faceTexture("angry", "#e45d5d", "angry-agent"));
+          (face.material as THREE.MeshBasicMaterial).needsUpdate = true;
         }
-        const pulse = 1.26 + Math.sin(time * 0.007) * 0.025;
-        threatRef.current.scale.setScalar(pulse);
+        const pulse = 1.05 + Math.sin(time * 0.006) * 0.035;
+        threat.scale.setScalar(pulse);
+        const aura = threat.userData.aura as THREE.Mesh;
+        (aura.material as THREE.MeshBasicMaterial).opacity = 0.13 + Math.sin(time * 0.0043) * 0.045;
+      }
+      if (renderer.xr.isPresenting && audioRef.current?.enabled) {
+        const xrCamera = renderer.xr.getCamera(camera);
+        xrCamera.getWorldPosition(listenerPosition);
+        xrCamera.getWorldQuaternion(listenerQuaternion);
+        listenerForward.set(0, 0, -1).applyQuaternion(listenerQuaternion);
+        listenerUp.set(0, 1, 0).applyQuaternion(listenerQuaternion);
+        audioRef.current.setListenerPose(
+          listenerPosition.x, listenerPosition.y, listenerPosition.z,
+          listenerForward.x, listenerForward.y, listenerForward.z,
+          listenerUp.x, listenerUp.y, listenerUp.z,
+        );
       }
       controls.update();
       renderer.render(scene, camera);

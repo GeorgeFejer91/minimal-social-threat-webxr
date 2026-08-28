@@ -4,7 +4,7 @@ import { evaluateScenario } from "../lib/scenario.ts";
 import { decodeSceneCommand, decodeSceneFrame, encodeSceneFrame, isNewerSequence } from "../lib/scene-sync.ts";
 
 const snapshot = evaluateScenario(
-  { threatKind: "tiger", intensity: "gentle", mode: "passthrough", loop: false },
+  { threatKind: "shadow", intensity: "gentle", mode: "passthrough", loop: false },
   9_250,
   "session_test",
   { running: true, lastCommandId: "cmd_ok" },

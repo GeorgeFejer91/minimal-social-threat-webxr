@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import StudyApp from "../components/StudyApp";
 
 export const metadata: Metadata = {
-  title: "Social Threat Lab · phone-first 2D study prototype",
-  description: "A playable 2D social-agent threat trial for phones and browsers, with optional WebXR and a realtime VDO.Ninja companion view.",
+  title: "Social Threat Lab · social dyads and an approaching shadow",
+  description: "A playable phone-first social-agent threat trial with independent dyads, HRTF spatial audio, optional WebXR, and a realtime VDO.Ninja companion.",
 };
 
 export default function Home() {

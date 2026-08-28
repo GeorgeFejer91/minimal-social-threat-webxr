@@ -1,27 +1,31 @@
 # Minimal Social Threat 2D + WebXR
 
-A small, procedural social-threat research prototype with a phone-first 2D trial and optional WebXR:
+A deterministic social-threat research prototype with a phone-first 2D trial, optional HRTF spatial audio, and optional WebXR:
 
 **Live site:** https://georgefejer91.github.io/minimal-social-threat-webxr/
 
 **Direct views:** [2D trial](https://georgefejer91.github.io/minimal-social-threat-webxr/?view=trial) · [companion view](https://georgefejer91.github.io/minimal-social-threat-webxr/?view=companion)
 
-- **2D trial:** a responsive Canvas scene shows six minimalist social agents around the observer; a stylized tiger or angry agent approaches while the group displays alert/fear expressions and avoidance. Start, pause, reset, configure, loop, log, and broadcast all work on a phone.
+- **2D trial:** six minimalist agents form three conversational dyads, meander independently, exchange talk/listen roles, and look toward one another. A shrouded shadow or angry agent approaches; threat awareness spreads with staggered delays before the group startles and avoids it.
+- **Spatial audio:** explicit opt-in enables non-lexical social vocal cues and a continuous, position-bound threat sound through Web Audio HRTF panning. The threat uses 70 Hz amplitude modulation as a documented auditory-roughness adaptation.
 - **Optional WebXR:** the Three.js preview, headset VR, and passthrough MR load only when requested.
 - **Companion view:** a realtime top-down diagram, scene readback, and bounded start/pause/reset/configuration controls.
 
-The primary trial supports a dusk-clearing or neutral study-grid background. The optional add-on supports WebXR passthrough (`immersive-ar`). No image, audio, or 3D-model downloads are required. The landing, trial, and companion views use a safe-area-aware single-column phone layout with touch-sized controls; both 2D Canvas and optional WebGL surfaces yield vertical gestures to page scrolling.
+The primary trial supports a dusk-clearing or neutral study-grid background. The optional add-on supports WebXR passthrough (`immersive-ar`). All current agents, shadow geometry, captions, and sounds are generated locally in code; no image, audio, or 3D-model download is required. The landing, trial, and companion views use a safe-area-aware single-column phone layout with touch-sized controls; both 2D Canvas and optional WebGL surfaces yield vertical gestures to page scrolling.
+
+**First-time contributors and AI agents:** read [`FOR_AI/README.md`](FOR_AI/README.md) before working in this repository. It is the authority for requirements, scope, architecture, bibliography, source assets, and validation status.
 
 ## Important research boundary
 
-This repository is a **stimulus-building prototype**, not a pre-validated paradigm, diagnostic, or emotion detector. Its procedural faces and avoidance behavior have not themselves been validated. Before collecting study data, pre-register the operationalization and pilot-test at least:
+This repository is a **stimulus-building prototype**, not a pre-validated paradigm, diagnostic, or emotion detector. Its procedural faces, social dynamics, shadow, captions, synthesized voices, and combined audiovisual manipulation have not themselves been validated. Before collecting study data, pre-register the operationalization and pilot-test at least:
 
 - threat/fear recognition and perceived intensity;
 - realism, presence, discomfort, and simulator sickness;
 - timing, minimum distance, manipulation checks, and demand characteristics;
+- audio localization, roughness, loudness, audiovisual co-location, and headphone/headset calibration;
 - device/browser compatibility and cultural or population-specific interpretation.
 
-The threat has a code-tested **1.8 m minimum distance**. “Gentle” takes 18 seconds to approach; “Standard” takes 12 seconds. Phone controls, either XR controller trigger, and the companion can pause the scene.
+The threat has a code-tested **1.8 m minimum distance**. After an 8-second social baseline and 3-second detection interval, “Gentle” takes 18 seconds to approach and “Standard” takes 12 seconds. Phone controls, either XR controller trigger, and the companion can pause the scene. Digital limiting does not establish a safe sound-pressure level; begin at low volume and calibrate physical output before participant use.
 
 ## Quick start
 
@@ -70,12 +74,12 @@ The workflow supplies the repository base path. If you use a custom domain at th
 
 | Concern | Authority | Readback |
 | --- | --- | --- |
-| Scenario clock, phase, agent behavior, threat distance | 2D trial host | Versioned scene frame at up to 20 Hz |
+| Scenario clock, phase, social links, agent behavior, audio cues, threat distance | 2D trial host | Versioned scene frame at up to 20 Hz |
 | Start/pause/reset/threat/intensity request | Companion page | Applied only by the trial host; command ID returns in a host-owned frame |
 | Rendering | Each browser | Same positions/phase from the latest accepted frame |
 | Logging | 2D trial host | Downloadable bounded CSV; never uploaded by this app |
 
-The scene transport follows the Affect Tracker’s remote-Flubber pattern: bundled VDO.Ninja SDK 1.5.5, a data-only public discovery room, anonymous random stream IDs, no media tracks, `ordered: false`, `maxRetransmits: 0`, newest-state backpressure, sequence validation, automatic selection only when one source exists, and an explicit stale state. The richer scene uses versioned JSON rather than Affect Tracker’s 12-byte X/Y frame.
+The scene transport follows the Affect Tracker’s remote-Flubber pattern: bundled VDO.Ninja SDK 1.5.5, a data-only public discovery room, anonymous random stream IDs, no media tracks, `ordered: false`, `maxRetransmits: 0`, newest-state backpressure, sequence validation, automatic selection only when one source exists, and an explicit stale state. Schema-v2 JSON includes the complete social state and active audio-cue metadata rather than Affect Tracker’s 12-byte X/Y frame.
 
 ### Wire data
 
@@ -83,7 +87,7 @@ The trial host sends only:
 
 - anonymous in-memory session ID;
 - scenario configuration, phase, elapsed scenario time, and pause/run state;
-- fixed observer origin and procedural agent/threat positions/expressions;
+- fixed observer origin, social links, active cue metadata, and procedural agent/threat positions, orientations, expressions, and behaviors;
 - last applied companion command ID.
 
 The companion sends an allowlisted command: `start`, `pause`, `resume`, `reset`, `set-threat`, or `set-intensity`. It cannot send code or arbitrary scene state. The app does **not** request microphone, camera, media capture, controller pose, headset pose, participant name, or physiology.
@@ -111,11 +115,13 @@ The automated checks do not qualify a headset study. Before claiming support, re
 - `components/ParticipantScene2D.tsx` — phone-first Canvas renderer and minimalist emotional agents.
 - `components/XrScene.tsx` — optional Three.js/WebXR renderer and procedural agents.
 - `lib/scenario.ts` — deterministic scenario timeline and safety contract.
+- `lib/spatial-audio.ts` — opt-in HRTF panning and project-authored vocal/roughness synthesis.
 - `lib/scene-sync.ts` — VDO.Ninja transport, codec, discovery, command validation, and stale handling.
 - `components/TopdownScene.tsx` — companion canvas renderer.
 - `components/StudyApp.tsx` — experiment UI, authority application, logging, and routing.
 - `tests/` — scenario, transport, vendored-SDK, privacy, and export checks.
+- `FOR_AI/` — mandatory first-read project memory, requirements, architecture, bibliography, provenance, and study-readiness record.
 
 ## Licenses and provenance
 
-Project-authored code is MIT licensed. The unmodified VDO.Ninja SDK 1.5.5 distribution and readable source are under MPL-2.0; its license is packaged next to the SDK. See `THIRD_PARTY_NOTICES.md` for pinned hashes and source links.
+Project-authored code, procedural visuals, and runtime synthesis are MIT licensed. The unmodified VDO.Ninja SDK 1.5.5 distribution and readable source are under MPL-2.0; its license is packaged next to the SDK. See `THIRD_PARTY_NOTICES.md` for pinned hashes and source links, plus [`FOR_AI/documentation/SOURCE_ASSET_REGISTER.md`](FOR_AI/documentation/SOURCE_ASSET_REGISTER.md) and [`FOR_AI/documentation/BIBLIOGRAPHY.md`](FOR_AI/documentation/BIBLIOGRAPHY.md) for implementation-to-source citation mapping.
