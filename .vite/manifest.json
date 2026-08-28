@@ -10,33 +10,33 @@
     "file": "minimal-social-threat-webxr/_next/static/chunks/rolldown-runtime-hePW80VL.js",
     "name": "rolldown-runtime"
   },
-  "_vinext-IuBmSz5j.js": {
-    "file": "minimal-social-threat-webxr/_next/static/chunks/vinext-IuBmSz5j.js",
+  "_vinext-C68UvngQ.js": {
+    "file": "minimal-social-threat-webxr/_next/static/chunks/vinext-C68UvngQ.js",
     "name": "vinext",
     "imports": [
       "_rolldown-runtime-hePW80VL.js",
       "_framework-DTZGTDtF.js"
     ],
     "dynamicImports": [
-      "_vinext-IuBmSz5j.js"
+      "_vinext-C68UvngQ.js"
     ]
   },
   "components/StudyApp.tsx": {
-    "file": "minimal-social-threat-webxr/_next/static/chunks/StudyApp-BNBQXRCu.js",
+    "file": "minimal-social-threat-webxr/_next/static/chunks/StudyApp-PN2HgsSF.js",
     "name": "StudyApp",
     "src": "components/StudyApp.tsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-hePW80VL.js",
       "_framework-DTZGTDtF.js",
-      "_vinext-IuBmSz5j.js"
+      "_vinext-C68UvngQ.js"
     ],
     "dynamicImports": [
       "components/XrScene.tsx"
     ]
   },
   "components/XrScene.tsx": {
-    "file": "minimal-social-threat-webxr/_next/static/chunks/XrScene-Uv-woffX.js",
+    "file": "minimal-social-threat-webxr/_next/static/chunks/XrScene-DzM3R2xd.js",
     "name": "XrScene",
     "src": "components/XrScene.tsx",
     "isDynamicEntry": true,
@@ -47,39 +47,39 @@
     ]
   },
   "node_modules/vinext/dist/shims/layout-segment-context.js": {
-    "file": "minimal-social-threat-webxr/_next/static/chunks/layout-segment-context-C58tXN18.js",
+    "file": "minimal-social-threat-webxr/_next/static/chunks/layout-segment-context-B5xVTX9P.js",
     "name": "layout-segment-context",
     "src": "node_modules/vinext/dist/shims/layout-segment-context.js",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-hePW80VL.js",
       "_framework-DTZGTDtF.js",
-      "_vinext-IuBmSz5j.js"
+      "_vinext-C68UvngQ.js"
     ]
   },
   "node_modules/vinext/dist/shims/script.js": {
-    "file": "minimal-social-threat-webxr/_next/static/chunks/script-xvRgR_cm.js",
+    "file": "minimal-social-threat-webxr/_next/static/chunks/script-C11OMIb8.js",
     "name": "script",
     "src": "node_modules/vinext/dist/shims/script.js",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-hePW80VL.js",
       "_framework-DTZGTDtF.js",
-      "_vinext-IuBmSz5j.js"
+      "_vinext-C68UvngQ.js"
     ]
   },
   "virtual:vinext-app-browser-entry": {
-    "file": "minimal-social-threat-webxr/_next/static/chunks/index-C7OcEXyY.js",
+    "file": "minimal-social-threat-webxr/_next/static/chunks/index-DVoGPd4-.js",
     "name": "index",
     "src": "virtual:vinext-app-browser-entry",
     "isEntry": true,
     "imports": [
       "_rolldown-runtime-hePW80VL.js",
       "_framework-DTZGTDtF.js",
-      "_vinext-IuBmSz5j.js"
+      "_vinext-C68UvngQ.js"
     ],
     "dynamicImports": [
-      "_vinext-IuBmSz5j.js",
+      "_vinext-C68UvngQ.js",
       "node_modules/vinext/dist/shims/layout-segment-context.js",
       "components/StudyApp.tsx",
       "node_modules/vinext/dist/shims/script.js"
