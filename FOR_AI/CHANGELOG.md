@@ -1,5 +1,11 @@
 # Project-memory changelog
 
+## 2026-08-29 — silent immersive default
+
+- Confirmed from live Quest audio-service readback that the currently audible continuous background stream belonged to Meta VR Shell/Home rather than Quest Browser. No headset audio setting was changed during that diagnostic.
+- Kept the application audio state off by default and made every immersive VR/MR entry explicitly dispose any prior 2D Web Audio graph before requesting the XR session, without adding a new preference.
+- Restricted the existing opt-in audio action and engine attachment to non-immersive 2D use, and added a build-output regression gate for restored-tab audio carryover.
+
 ## 2026-08-28 — Quest XR clock repair and bidirectional PC operator bridge
 
 - Added a dedicated `?view=headset` role that starts the data-only VDO.Ninja host on entry, allowing the PC operator to connect before the scenario starts while preserving the ordinary trial's start-gated connection behavior.

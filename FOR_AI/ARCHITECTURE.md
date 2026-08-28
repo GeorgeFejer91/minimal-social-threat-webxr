@@ -21,7 +21,7 @@ deterministic scenario evaluator
 
 - **Stimulus plane:** `lib/scenario.ts` returns schema-v4 snapshots from configuration, elapsed time, and session state.
 - **Visual plane:** `ParticipantScene2D.tsx`, `XrScene.tsx`, and `TopdownScene.tsx` render only snapshot fields. `lib/facial-expression.ts` is renderer-neutral visual geometry: it projects authoritative `expression` and continuous `fear` into shared SVG paths without inventing scenario timing.
-- **Audio plane:** `lib/spatial-audio.ts` consumes snapshot audio cues, creates HRTF panners at authoritative source positions, and updates the listener from the XR camera during immersion.
+- **Audio plane:** `lib/spatial-audio.ts` can consume snapshot audio cues and create HRTF panners at authoritative source positions only after an explicit 2D opt-in. The application does not attach that engine to an active immersive session.
 - **Control plane:** `StudyApp.tsx` owns direct 2D/immersive start, pause/reset/configuration, the authoritative clock accumulator, audio opt-in, bounded logging, and application of operator commands. Window animation frames advance time outside XR; while an immersive session is presenting, `XrScene.tsx` supplies XR animation-frame timestamps to the same accumulator so a suspended browser-window loop cannot freeze the scenario. WebXR entry starts or continues the trial from a trusted local click; right-controller A restarts/resumes and either trigger pauses.
 - **Asset plane:** On an XR-capable browser—or after an explicit browser-preview request—`XrScene.tsx` loads the local Cesium Man and Huntsman Spider GLBs in the background, retaining procedural agents/spider as immediate fallbacks. A non-WebGL 2D browser never has to mount the renderer. `agentStyle` and threat identity remain snapshot state rather than renderer-private choices. The project-authored face library is source geometry, not an external raster/model asset.
 - **Transport plane:** `lib/scene-sync.ts` carries schema-v4 scene state inside a version-2 envelope with host runtime readback, bounded receipts, and a strict command allowlist via the vendored VDO.Ninja SDK. Normal participant start begins broadcast; the dedicated `?view=headset` role begins hosting on entry; PC operator mode auto-starts discovery.
@@ -58,9 +58,10 @@ The 1.8 m threat constraint is authoritative but intentionally invisible in the 
 
 ## Audio contract
 
-- Audio never starts without a participant/operator click.
+- Audio is off by default and never starts without a participant click. No persisted or operator-controlled audio preference exists.
+- Every VR/MR entry clears the enabled state and closes any existing Web Audio graph synchronously before `requestSession()`; immersive operation remains silent even when the same Quest Browser tab previously enabled 2D audio.
 - Panning model is Web Audio `HRTF`; distance model is inverse.
-- The listener is fixed at the scene origin in 2D and updated from the immersive camera in XR.
+- The optional audio listener is fixed at the scene origin in 2D. It is not updated from or attached to the immersive camera.
 - Dialogue semantics are fixed captions. Baseline friendly cues use gentle envelopes, moderate roots, and project-authored tones at 1:1, 5:4, and 3:2 ratios. This operationalization is motivated by acoustic-affect and consonance research but is not a universal or independently validated friendliness code.
 - Threat synthesis uses 47 and 83 Hz amplitude modulation within the roughness regime described by Arnal et al., low inharmonic carriers, deterministic band-limited noise, and accelerating low pulses. The spider adds brief synthetic clicks. Distance attenuation is owned by the HRTF panner, so source salience increases with approach.
 - A master gain and compressor limit digital output, but the application cannot guarantee sound-pressure level; physical calibration is mandatory.

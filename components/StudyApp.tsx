@@ -151,7 +151,7 @@ export default function StudyApp() {
   const [pendingXrRequest, setPendingXrRequest] = useState<PendingXrRequest | undefined>(undefined);
   const [hostRevision, setHostRevision] = useState(0);
   const [audioEnabled, setAudioEnabled] = useState(false);
-  const [audioStatus, setAudioStatus] = useState("Audio is off. Headphones are recommended for HRTF spatialization.");
+  const [audioStatus, setAudioStatus] = useState("Audio is off by default. Immersive VR always starts silent.");
   const [broadcastState, setBroadcastState] = useState<Record<string, unknown>>({ phase: "idle", listenerCount: 0 });
   const broadcasterRef = useRef<SceneBroadcaster | undefined>(undefined);
   const logsRef = useRef<LogRow[]>([]);
@@ -215,9 +215,10 @@ export default function StudyApp() {
   useEffect(() => () => { void audioEngine.dispose(); }, [audioEngine]);
 
   useEffect(() => {
-    if (!xrActive) audioEngine.setListenerPose(0, 1.6, 0, 0, 0, -1, 0, 1, 0);
+    if (!audioEnabled || xrActive) return;
+    audioEngine.setListenerPose(0, 1.6, 0, 0, 0, -1, 0, 1, 0);
     audioEngine.update(scene);
-  }, [audioEngine, scene, xrActive]);
+  }, [audioEnabled, audioEngine, scene, xrActive]);
 
   const navigate = useCallback((next: AppView) => {
     setHeadsetHost(false);
@@ -576,18 +577,30 @@ export default function StudyApp() {
     });
   };
 
+  const silenceSpatialAudio = useCallback(() => {
+    // The engine clears its graph synchronously before awaiting AudioContext.close(),
+    // so a restored Quest Browser tab cannot carry prior 2D audio into WebXR.
+    void audioEngine.dispose();
+    setAudioEnabled(false);
+    setAudioStatus("Audio is off by default. Immersive VR always starts silent.");
+  }, [audioEngine]);
+
   const toggleSpatialAudio = async () => {
+    if (xrActiveRef.current) {
+      silenceSpatialAudio();
+      return;
+    }
     if (audioEnabled) {
       await audioEngine.dispose();
       setAudioEnabled(false);
-      setAudioStatus("Audio is off. Headphones are recommended for HRTF spatialization.");
+      setAudioStatus("Audio is off by default. Immersive VR always starts silent.");
       return;
     }
     try {
       await audioEngine.enable();
       audioEngine.update(sceneRef.current);
       setAudioEnabled(true);
-      setAudioStatus("HRTF audio enabled · begin at low device volume.");
+      setAudioStatus("HRTF audio enabled for 2D only · begin at low device volume.");
     } catch (error) {
       setAudioStatus(error instanceof Error ? error.message : String(error));
     }
@@ -650,6 +663,9 @@ export default function StudyApp() {
 
     // Do not await the data link before requestSession: the WebXR request must
     // remain directly inside this user gesture on Quest Browser.
+    // Audio teardown is also dispatched without awaiting so requestSession
+    // retains the same trusted activation while immersive entry starts silent.
+    silenceSpatialAudio();
     void startBroadcast();
     xrPhaseRef.current = "entering";
     setXrPhase("entering");
@@ -668,7 +684,7 @@ export default function StudyApp() {
       setShowXrPreview(true);
       if (!runtimeRef.current.running || isScenarioComplete(sceneRef.current)) startScenario(requestId ? "companion" : "trial");
       else if (runtimeRef.current.paused) pauseScenario(requestId ? "companion" : "trial");
-      setXrStatus(`${mode === "passthrough" ? "Mixed-reality" : "Immersive 3D"} trial running. A resumes/restarts; either trigger pauses.`);
+      setXrStatus(`${mode === "passthrough" ? "Mixed-reality" : "Immersive 3D"} trial running silently. A resumes/restarts; either trigger pauses.`);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       setXrStatus(message);
@@ -680,7 +696,7 @@ export default function StudyApp() {
         recordReceipt({ requestId, action: "request-xr", status: "failed", reason: "request-session-failed", message });
       } else bumpHostRevision();
     }
-  }, [bumpHostRevision, pauseScenario, recordReceipt, startBroadcast, startScenario, xrEngineReady]);
+  }, [bumpHostRevision, pauseScenario, recordReceipt, silenceSpatialAudio, startBroadcast, startScenario, xrEngineReady]);
 
   const dismissPendingXr = useCallback(() => {
     const pending = pendingXrRequestRef.current;
@@ -916,9 +932,9 @@ export default function StudyApp() {
               <section className="control-card audio-card">
                 <div className="card-heading"><div><span>02</span><h2>Spatial sound</h2></div><small className={audioEnabled ? "online" : ""}>{audioEnabled ? "HRTF on" : "Off"}</small></div>
                 <p className="addon-copy">Dyads exchange consonant friendly-tone prototypes. The threat adds a spatially looming inharmonic drone, 47/83 Hz rough modulation, accelerating low pulses, and—on the spider—brief chitter-like clicks.</p>
-                <button className={`button ${audioEnabled ? "ghost" : "link-button"}`} type="button" onClick={() => void toggleSpatialAudio()}>{audioEnabled ? "Disable spatial audio" : "Enable spatial audio"}</button>
+                <button className={`button ${audioEnabled ? "ghost" : "link-button"}`} type="button" disabled={xrActive} onClick={() => void toggleSpatialAudio()}>{audioEnabled ? "Disable spatial audio" : "Enable spatial audio for 2D"}</button>
                 <p className="status-line" role="status">{audioStatus}</p>
-                <p className="microcopy">Use headphones, begin at low volume, and measure actual output before participant use. Roughness and looming are evidence-informed features; this exact composite is not a validated stimulus and needs target-population piloting.</p>
+                <p className="microcopy">Immersive VR/MR starts and remains silent; entering XR closes any earlier 2D audio graph. Optional 2D audio still requires a deliberate click. Use headphones, begin at low volume, and measure actual output before participant use.</p>
               </section>
 
               <section className="control-card xr-addon-card">
@@ -930,7 +946,7 @@ export default function StudyApp() {
                       <XrScene
                         ref={xrRef}
                         snapshot={scene}
-                        audioEngine={audioEngine}
+                        audioEngine={audioEnabled && !xrActive ? audioEngine : undefined}
                         onFrame={advanceScenarioFrame}
                         onReady={handleXrReady}
                         onStartRequest={handleXrStart}
