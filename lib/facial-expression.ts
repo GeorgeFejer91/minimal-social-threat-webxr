@@ -51,12 +51,30 @@ export interface SphereFaceProjection {
   verticalArc: number;
 }
 
+export interface FaceSvgOptions {
+  stroke?: string;
+  eyeFill?: string;
+  title?: string;
+  description?: string;
+}
+
+export interface TriangleMeshData {
+  positions: number[];
+  indices: number[];
+}
+
+export interface SphereFaceMeshData {
+  strokes: TriangleMeshData;
+  eyeFills: TriangleMeshData;
+  darkFills: TriangleMeshData;
+}
+
 export const DEFAULT_SPHERE_FACE_PROJECTION: Readonly<SphereFaceProjection> = Object.freeze({
   horizontalArc: Math.PI * 0.37,
   verticalArc: Math.PI * 0.31,
 });
 
-const FEATURE_NAMES: readonly FaceFeatureName[] = [
+export const FACE_FEATURE_NAMES: readonly FaceFeatureName[] = [
   "leftBrow",
   "rightBrow",
   "leftEye",
@@ -293,7 +311,7 @@ export function interpolateFaceGeometry(
   const amount = eased ? smoothMorphProgress(progress) : clamp01(progress);
   if (amount === 0) return from;
   if (amount === 1) return to;
-  return Object.fromEntries(FEATURE_NAMES.map((name) => [
+  return Object.fromEntries(FACE_FEATURE_NAMES.map((name) => [
     name,
     interpolatePath(from[name], to[name], amount),
   ])) as FaceGeometry;
@@ -336,6 +354,14 @@ function formatNumber(value: number) {
   return Number(value.toFixed(4)).toString();
 }
 
+function escapeXml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
 export function featureToSvgPath(feature: SvgFeaturePath) {
   const segments = feature.segments.map((item) => (
     `C ${formatNumber(item.control1.x)} ${formatNumber(item.control1.y)} ${formatNumber(item.control2.x)} ${formatNumber(item.control2.y)} ${formatNumber(item.to.x)} ${formatNumber(item.to.y)}`
@@ -343,12 +369,36 @@ export function featureToSvgPath(feature: SvgFeaturePath) {
   return `M ${formatNumber(feature.start.x)} ${formatNumber(feature.start.y)} ${segments.join(" ")}${feature.closed ? " Z" : ""}`;
 }
 
-export function faceGeometryToSvg(geometry: FaceGeometry, stroke = "#17231e") {
-  const paths = FEATURE_NAMES.map((name) => {
-    const fill = name === "mouth" || name.endsWith("Pupil") ? stroke : name.endsWith("Eye") ? "#effff7" : "none";
+export function faceGeometryToSvg(geometry: FaceGeometry, options: string | FaceSvgOptions = {}) {
+  const resolved = typeof options === "string" ? { stroke: options } : options;
+  const stroke = resolved.stroke ?? "#17231e";
+  const eyeFill = resolved.eyeFill ?? "#effff7";
+  const accessibleName = resolved.title ? `<title>${escapeXml(resolved.title)}</title>` : "";
+  const accessibleDescription = resolved.description ? `<desc>${escapeXml(resolved.description)}</desc>` : "";
+  const paths = FACE_FEATURE_NAMES.map((name) => {
+    const fill = name === "mouth" || name.endsWith("Pupil") ? stroke : name.endsWith("Eye") ? eyeFill : "none";
     return `<path data-feature="${name}" d="${featureToSvgPath(geometry[name])}" fill="${fill}" stroke="${stroke}" />`;
   }).join("");
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1 -1 2 2"><g stroke-width="0.055" stroke-linecap="round" stroke-linejoin="round">${paths}</g></svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="-1 -1 2 2" preserveAspectRatio="xMidYMid meet" shape-rendering="geometricPrecision">${accessibleName}${accessibleDescription}<g stroke-width="0.055" stroke-linecap="round" stroke-linejoin="round">${paths}</g></svg>`;
+}
+
+export function faceGeometryToSphereSvg(
+  geometry: FaceGeometry,
+  projection: SphereFaceProjection = DEFAULT_SPHERE_FACE_PROJECTION,
+  options: string | FaceSvgOptions = {},
+) {
+  const resolved = typeof options === "string" ? { stroke: options } : options;
+  const stroke = resolved.stroke ?? "#17231e";
+  const eyeFill = resolved.eyeFill ?? "#effff7";
+  const accessibleName = resolved.title ? `<title>${escapeXml(resolved.title)}</title>` : "";
+  const accessibleDescription = resolved.description ? `<desc>${escapeXml(resolved.description)}</desc>` : "";
+  const scaleX = projection.horizontalArc / Math.PI;
+  const scaleY = projection.verticalArc / Math.PI;
+  const paths = FACE_FEATURE_NAMES.map((name) => {
+    const fill = name === "mouth" || name.endsWith("Pupil") ? stroke : name.endsWith("Eye") ? eyeFill : "none";
+    return `<path data-feature="${name}" d="${featureToSvgPath(geometry[name])}" fill="${fill}" stroke="${stroke}" />`;
+  }).join("");
+  return `<svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 2 1" preserveAspectRatio="none" shape-rendering="geometricPrecision">${accessibleName}${accessibleDescription}<g transform="translate(0.5 0.5) scale(${formatNumber(scaleX)} ${formatNumber(scaleY)})" stroke-width="0.055" stroke-linecap="round" stroke-linejoin="round">${paths}</g></svg>`;
 }
 
 export function drawFaceGeometry(
@@ -368,7 +418,7 @@ export function drawFaceGeometry(
   context.lineJoin = "round";
   context.strokeStyle = stroke;
 
-  for (const name of FEATURE_NAMES) {
+  for (const name of FACE_FEATURE_NAMES) {
     const path = new Path2D(featureToSvgPath(geometry[name]));
     if (name === "mouth" || name.endsWith("Pupil")) {
       context.fillStyle = stroke;
@@ -410,6 +460,207 @@ export function facePointToSphere(
     y: Object.is(vertical, -0) ? 0 : vertical,
     z: Math.cos(longitude) * latitudeRadius,
   };
+}
+
+function cubicPoint(start: FacePoint, curve: CubicSegment, progress: number): FacePoint {
+  const inverse = 1 - progress;
+  const inverseSquared = inverse * inverse;
+  const progressSquared = progress * progress;
+  return {
+    x: inverseSquared * inverse * start.x
+      + 3 * inverseSquared * progress * curve.control1.x
+      + 3 * inverse * progressSquared * curve.control2.x
+      + progressSquared * progress * curve.to.x,
+    y: inverseSquared * inverse * start.y
+      + 3 * inverseSquared * progress * curve.control1.y
+      + 3 * inverse * progressSquared * curve.control2.y
+      + progressSquared * progress * curve.to.y,
+  };
+}
+
+export function sampleSvgFeature(feature: SvgFeaturePath, subdivisions = 24): FacePoint[] {
+  const steps = Math.max(2, Math.floor(subdivisions));
+  const points = [feature.start];
+  let start = feature.start;
+  for (const curve of feature.segments) {
+    for (let index = 1; index <= steps; index += 1) {
+      points.push(cubicPoint(start, curve, index / steps));
+    }
+    start = curve.to;
+  }
+  if (feature.closed && points.length > 1) {
+    const last = points.at(-1)!;
+    if (Math.hypot(last.x - points[0].x, last.y - points[0].y) < 1e-8) points.pop();
+  }
+  return points;
+}
+
+function appendSphereVertex(
+  target: TriangleMeshData,
+  value: FacePoint,
+  radius: number,
+  projection: SphereFaceProjection,
+) {
+  const mapped = facePointToSphere(value, radius, projection);
+  target.positions.push(mapped.x, mapped.y, mapped.z);
+  return target.positions.length / 3 - 1;
+}
+
+function triangleCross(a: FacePoint, b: FacePoint, c: FacePoint) {
+  return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+}
+
+function polygonSignedArea(points: readonly FacePoint[]) {
+  let doubledArea = 0;
+  for (let index = 0; index < points.length; index += 1) {
+    const next = points[(index + 1) % points.length];
+    doubledArea += points[index].x * next.y - next.x * points[index].y;
+  }
+  return doubledArea * 0.5;
+}
+
+function pointInTriangle(value: FacePoint, a: FacePoint, b: FacePoint, c: FacePoint) {
+  const first = triangleCross(a, b, value);
+  const second = triangleCross(b, c, value);
+  const third = triangleCross(c, a, value);
+  const epsilon = 1e-12;
+  const hasNegative = first < -epsilon || second < -epsilon || third < -epsilon;
+  const hasPositive = first > epsilon || second > epsilon || third > epsilon;
+  return !(hasNegative && hasPositive);
+}
+
+function triangulatePolygon(points: readonly FacePoint[]) {
+  if (points.length < 3) return [];
+  const orientation = polygonSignedArea(points) >= 0 ? 1 : -1;
+  const remaining = points.map((_, index) => index);
+  const triangles: number[] = [];
+  let guard = points.length * points.length;
+  while (remaining.length > 3 && guard > 0) {
+    let earFound = false;
+    for (let index = 0; index < remaining.length; index += 1) {
+      const previous = remaining[(index - 1 + remaining.length) % remaining.length];
+      const current = remaining[index];
+      const next = remaining[(index + 1) % remaining.length];
+      if (triangleCross(points[previous], points[current], points[next]) * orientation <= 1e-12) continue;
+      const containsPoint = remaining.some((candidate) => (
+        candidate !== previous
+        && candidate !== current
+        && candidate !== next
+        && pointInTriangle(points[candidate], points[previous], points[current], points[next])
+      ));
+      if (containsPoint) continue;
+      triangles.push(previous, current, next);
+      remaining.splice(index, 1);
+      earFound = true;
+      break;
+    }
+    if (!earFound) throw new Error("Facial SVG fill path could not be triangulated without crossing its boundary.");
+    guard -= 1;
+  }
+  if (remaining.length === 3) triangles.push(remaining[0], remaining[1], remaining[2]);
+  return triangles;
+}
+
+function appendFill(
+  target: TriangleMeshData,
+  points: readonly FacePoint[],
+  radius: number,
+  projection: SphereFaceProjection,
+) {
+  if (points.length < 3) return;
+  const ringStart = target.positions.length / 3;
+  for (const value of points) appendSphereVertex(target, value, radius, projection);
+  const triangles = triangulatePolygon(points);
+  const reverseForSphere = polygonSignedArea(points) > 0;
+  for (let index = 0; index < triangles.length; index += 3) {
+    const first = ringStart + triangles[index];
+    const second = ringStart + triangles[index + 1];
+    const third = ringStart + triangles[index + 2];
+    // Facial coordinates point down while the sphere's local Y points up.
+    target.indices.push(first, reverseForSphere ? third : second, reverseForSphere ? second : third);
+  }
+}
+
+function appendRoundCap(
+  target: TriangleMeshData,
+  center: FacePoint,
+  radius2d: number,
+  sphereRadius: number,
+  projection: SphereFaceProjection,
+) {
+  const centerIndex = appendSphereVertex(target, center, sphereRadius, projection);
+  const ringStart = target.positions.length / 3;
+  const steps = 10;
+  for (let index = 0; index < steps; index += 1) {
+    const angle = (index / steps) * Math.PI * 2;
+    appendSphereVertex(target, {
+      x: center.x + Math.cos(angle) * radius2d,
+      y: center.y + Math.sin(angle) * radius2d,
+    }, sphereRadius, projection);
+  }
+  for (let index = 0; index < steps; index += 1) {
+    const next = (index + 1) % steps;
+    target.indices.push(centerIndex, ringStart + next, ringStart + index);
+  }
+}
+
+function appendStroke(
+  target: TriangleMeshData,
+  points: readonly FacePoint[],
+  closed: boolean,
+  strokeWidth: number,
+  radius: number,
+  projection: SphereFaceProjection,
+) {
+  if (points.length < 2) return;
+  const ringStart = target.positions.length / 3;
+  const lastIndex = points.length - 1;
+  for (let index = 0; index < points.length; index += 1) {
+    const previous = points[closed ? (index - 1 + points.length) % points.length : Math.max(0, index - 1)];
+    const next = points[closed ? (index + 1) % points.length : Math.min(lastIndex, index + 1)];
+    const tangentX = next.x - previous.x;
+    const tangentY = next.y - previous.y;
+    const length = Math.max(1e-8, Math.hypot(tangentX, tangentY));
+    const offsetX = (-tangentY / length) * strokeWidth * 0.5;
+    const offsetY = (tangentX / length) * strokeWidth * 0.5;
+    appendSphereVertex(target, { x: points[index].x + offsetX, y: points[index].y + offsetY }, radius, projection);
+    appendSphereVertex(target, { x: points[index].x - offsetX, y: points[index].y - offsetY }, radius, projection);
+  }
+  const segmentCount = closed ? points.length : points.length - 1;
+  for (let index = 0; index < segmentCount; index += 1) {
+    const next = (index + 1) % points.length;
+    const left = ringStart + index * 2;
+    const right = left + 1;
+    const nextLeft = ringStart + next * 2;
+    const nextRight = nextLeft + 1;
+    target.indices.push(left, nextLeft, right, nextLeft, nextRight, right);
+  }
+  if (!closed) {
+    appendRoundCap(target, points[0], strokeWidth * 0.5, radius, projection);
+    appendRoundCap(target, points[lastIndex], strokeWidth * 0.5, radius, projection);
+  }
+}
+
+export function faceGeometryToSphereMeshData(
+  geometry: FaceGeometry,
+  radius = 1,
+  projection: SphereFaceProjection = DEFAULT_SPHERE_FACE_PROJECTION,
+  subdivisions = 24,
+  strokeWidth = 0.055,
+): SphereFaceMeshData {
+  const result: SphereFaceMeshData = {
+    strokes: { positions: [], indices: [] },
+    eyeFills: { positions: [], indices: [] },
+    darkFills: { positions: [], indices: [] },
+  };
+  for (const name of FACE_FEATURE_NAMES) {
+    const feature = geometry[name];
+    const points = sampleSvgFeature(feature, subdivisions);
+    if (feature.closed && name.endsWith("Eye")) appendFill(result.eyeFills, points, radius - 0.0007, projection);
+    if (feature.closed && (name.endsWith("Pupil") || name === "mouth")) appendFill(result.darkFills, points, radius - 0.00035, projection);
+    appendStroke(result.strokes, points, feature.closed, strokeWidth, radius, projection);
+  }
+  return result;
 }
 
 export function drawFaceOnSphereTexture(

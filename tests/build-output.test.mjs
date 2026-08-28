@@ -119,29 +119,39 @@ test("GitHub Pages assets are flattened to the project root when a prefix is con
   await assert.rejects(access(new URL(`dist/client/${prefixName}`, root)));
 });
 
-test("spatial threat audio uses HRTF looming, roughness, and bounded accelerating pulses", async () => {
-  const audio = await readFile(new URL("lib/spatial-audio.ts", root), "utf8");
+test("spatial threat audio separates PPS localization, 70 Hz roughness, and controlled distance rendering", async () => {
+  const [audio, protocol] = await Promise.all([
+    readFile(new URL("lib/spatial-audio.ts", root), "utf8"),
+    readFile(new URL("lib/threat-audio-protocol.ts", root), "utf8"),
+  ]);
   assert.match(audio, /panningModel = "HRTF"/);
-  assert.match(audio, /\[47, 0\.17\]/);
-  assert.match(audio, /\[83, 0\.12\]/);
-  assert.match(audio, /spider-menace/);
-  assert.match(audio, /localTime \+= 1\.72 - progress \* 1\.16/);
-  assert.match(audio, /distanceModel = "inverse"/);
+  assert.match(audio, /makePpsBurstTrain/);
+  assert.match(audio, /makeRoughThreat/);
+  assert.match(audio, /propagationDelaySeconds/);
+  assert.match(audio, /rolloffFactor = isThreat \? 0/);
+  assert.match(protocol, /modulationHz: 70/);
+  assert.match(protocol, /burstDurationS: 0\.03/);
+  assert.match(protocol, /targetPeriodS: 0\.095/);
+  assert.match(protocol, /startRelativeDb: -18/);
+  assert.match(protocol, /spiderM: 0\.42/);
+  assert.match(protocol, /sourceHeightPolicyId/);
+  assert.match(protocol, /calibrationStatus: "relative-digital-level-only; no dB SPL claim"/);
   assert.match(audio, /makeFriendlyCue/);
   assert.match(audio, /\[5 \/ 4, 0\.27\]/);
   assert.match(audio, /\[3 \/ 2, 0\.18\]/);
 });
 
-test("immersive entry is silent by default and cannot inherit a prior 2D audio graph", async () => {
+test("immersive audio is off by default and requires deliberate pre-entry opt-in", async () => {
   const study = await readFile(new URL("components/StudyApp.tsx", root), "utf8");
   assert.match(study, /const \[audioEnabled, setAudioEnabled\] = useState\(false\)/);
   assert.match(study, /const silenceSpatialAudio = useCallback\([\s\S]*?audioEngine\.dispose\(\)[\s\S]*?setAudioEnabled\(false\)/);
-  assert.match(study, /const enterImmersive = useCallback[\s\S]*?silenceSpatialAudio\(\)[\s\S]*?await xrRef\.current\.enter\(mode\)/);
-  assert.match(study, /audioEngine=\{audioEnabled && !xrActive \? audioEngine : undefined\}/);
-  assert.doesNotMatch(study, /next immersive session/);
+  assert.match(study, /if \(!audioEnabled\) return;[\s\S]*?if \(!xrActive\) audioEngine\.setListenerPose[\s\S]*?audioEngine\.update\(scene\)/);
+  assert.match(study, /audioEngine=\{audioEnabled \? audioEngine : undefined\}/);
+  assert.doesNotMatch(study, /const enterImmersive = useCallback[\s\S]*?silenceSpatialAudio\(\)[\s\S]*?await xrRef\.current\.enter\(mode\)/);
+  assert.match(study, /Audio never starts automatically or from a remote command/);
 });
 
-test("external human and spider assets are pinned and shipped locally", async () => {
+test("external human and retained spider reference assets are pinned and shipped locally", async () => {
   const expected = new Map([
     ["cesium-man.glb", "b7001eaeea8254bd44773bcd247e78696d94169388fbb2a1800fc69434e777d9"],
     ["huntsman-spider.glb", "efc9cfda2b8a198277d6a1b10ca8123460d909deb76400ccddcb495d355bb5ca"],
@@ -151,6 +161,39 @@ test("external human and spider assets are pinned and shipped locally", async ()
     assert.equal(createHash("sha256").update(bytes).digest("hex"), hash, name);
     await access(new URL(`dist/client/assets/models/${name}`, root));
   }
+});
+
+test("spider renderers use the viewer-facing articulated gait rather than the static GLB", async () => {
+  const [motion, scenario, participantScene, xrScene] = await Promise.all([
+    readFile(new URL("lib/spider-motion.ts", root), "utf8"),
+    readFile(new URL("lib/scenario.ts", root), "utf8"),
+    readFile(new URL("components/ParticipantScene2D.tsx", root), "utf8"),
+    readFile(new URL("components/XrScene.tsx", root), "utf8"),
+  ]);
+  assert.match(motion, /alternating-tetrapod gait/);
+  assert.match(scenario, /yaw: yawToward\(threatX, threatZ, 0, 0\)/);
+  assert.match(participantScene, /spiderMotionPose/);
+  assert.match(xrScene, /viewer-facing-animated-spider/);
+  assert.match(xrScene, /spiderMotionPose/);
+  assert.match(xrScene, /threat\.rotation\.y = threatState\.yaw/);
+  assert.doesNotMatch(xrScene, /huntsman-spider\.glb/);
+  assert.doesNotMatch(xrScene, /spiderTwitch/);
+});
+
+test("both participant renderers consume the corridor-cleared procedural forest", async () => {
+  const [forest, participantScene, xrScene] = await Promise.all([
+    readFile(new URL("lib/forest-layout.ts", root), "utf8"),
+    readFile(new URL("components/ParticipantScene2D.tsx", root), "utf8"),
+    readFile(new URL("components/XrScene.tsx", root), "utf8"),
+  ]);
+  assert.match(forest, /THREAT_CORRIDOR_HALF_WIDTH = 2\.4/);
+  assert.match(forest, /forestTreeCorridorClearance/);
+  assert.match(participantScene, /FOREST_TREES/);
+  assert.match(participantScene, /drawForestTree2D/);
+  assert.match(xrScene, /corridor-cleared-forest/);
+  assert.match(xrScene, /makeForestTree/);
+  assert.match(xrScene, /new THREE\.FogExp2/);
+  assert.doesNotMatch(xrScene, /Math\.sin\(angle\) \* radius/);
 });
 
 test("participant renderers consume authoritative shadow visibility", async () => {
@@ -165,7 +208,7 @@ test("participant renderers consume authoritative shadow visibility", async () =
   assert.match(xrScene, /threatState\.visibility/);
 });
 
-test("facial expressions share SVG geometry and wrap onto the procedural head sphere", async () => {
+test("facial expressions ship as SVG and render as vector meshes on the procedural head sphere", async () => {
   const [faces, participantScene, xrScene] = await Promise.all([
     readFile(new URL("lib/facial-expression.ts", root), "utf8"),
     readFile(new URL("components/ParticipantScene2D.tsx", root), "utf8"),
@@ -175,11 +218,18 @@ test("facial expressions share SVG geometry and wrap onto the procedural head sp
   assert.match(faces, /interpolateFaceGeometry/);
   assert.match(faces, /blendFaceEmotions/);
   assert.match(faces, /featureToSvgPath/);
+  assert.match(faces, /faceGeometryToSphereSvg/);
+  assert.match(faces, /faceGeometryToSphereMeshData/);
   assert.match(faces, /u:\s*0\.25/);
   assert.match(participantScene, /scenarioFaceGeometry/);
-  assert.match(xrScene, /drawFaceOnSphereTexture/);
-  assert.match(xrScene, /new THREE\.SphereGeometry\(0\.344/);
+  assert.match(xrScene, /faceGeometryToSphereMeshData/);
+  assert.match(xrScene, /new THREE\.BufferGeometry\(\)/);
+  assert.match(xrScene, /isVectorFace/);
+  assert.doesNotMatch(xrScene, /drawFaceOnSphereTexture/);
   assert.doesNotMatch(xrScene, /new THREE\.PlaneGeometry\(0\.58, 0\.58\)/);
+  await access(new URL("public/assets/faces/manifest.json", root));
+  await access(new URL("public/assets/faces/planar/fear.svg", root));
+  await access(new URL("public/assets/faces/spherical/fear.svg", root));
 });
 
 test("first-read project memory and social preview are shipped", async () => {

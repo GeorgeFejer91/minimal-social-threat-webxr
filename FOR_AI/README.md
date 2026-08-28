@@ -21,4 +21,17 @@ Update this folder in the same change whenever work alters:
 - third-party code, human/avatar assets, sound, images, research sources, citations, or licenses;
 - validation status, known limitations, experimental claims, or intended study use.
 
-The current product is a deterministic, phone-first social-threat stimulus prototype with direct optional WebXR launch, a dedicated headset-host route, a bidirectional VDO.Ninja data-only PC operator, minimal or bundled human-form crowd avatars, shadow/angry-agent/spider conditions, and optional 2D-only evidence-informed looming audio. Audio is off by default, and immersive entry explicitly closes any prior browser-audio graph. The operator reconstructs authoritative scene state and sends strictly allowlisted requests; it receives no headset media or pose. Remote immersive entry still requires trusted local headset confirmation. This is not a diagnostic and is not yet a validated social-neuroscience paradigm.
+## Website delivery contract
+
+Any change that affects the served website is incomplete while it exists only in a local worktree. This includes participant or operator UI, scenario/runtime behavior, WebXR, audio, synchronization, public assets, dependencies, build configuration, and deployment configuration.
+
+After the relevant validation passes, the contributor must:
+
+1. commit the complete in-scope change to the canonical repository;
+2. push the commit to GitHub;
+3. publish that exact source revision to the configured GitHub Pages site; and
+4. verify the public HTTPS site and every directly affected route.
+
+The canonical public site is `https://georgefejer91.github.io/minimal-social-threat-webxr/`. It currently publishes from the generated `gh-pages` branch. A successful local build or a push to `main` alone is not proof that the website is live. Record the source commit and deployed revision in the handoff or changelog. If authentication, GitHub, Pages, or live verification prevents delivery, report the work as **implemented locally; deployment pending** rather than complete. Pure research or project-memory edits that do not alter the served application do not require a Pages rebuild, although their commits must still be pushed when they accompany website work.
+
+The current product is a deterministic, phone-first social-threat stimulus prototype with direct optional WebXR launch, a dedicated headset-host route, a bidirectional VDO.Ninja data-only PC operator, a corridor-cleared procedural dusk forest, minimal or bundled human-form crowd avatars, shadow/angry-agent/viewer-facing articulated-spider conditions, and optional scene-bound spatial audio. Audio is off by default and requires a local pre-entry opt-in; when enabled it follows the authoritative source/listener poses in 2D and WebXR. The threat protocol separates a PPS Kit-derived burst-train localizer from a three-second 70 Hz roughness reconstruction and records a relative-level-only/no-SPL claim. The operator reconstructs authoritative scene state and sends strictly allowlisted requests; it receives no headset media or pose. Remote immersive entry still requires trusted local headset confirmation. This is not a diagnostic and is not yet a validated social-neuroscience paradigm.

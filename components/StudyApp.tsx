@@ -151,7 +151,7 @@ export default function StudyApp() {
   const [pendingXrRequest, setPendingXrRequest] = useState<PendingXrRequest | undefined>(undefined);
   const [hostRevision, setHostRevision] = useState(0);
   const [audioEnabled, setAudioEnabled] = useState(false);
-  const [audioStatus, setAudioStatus] = useState("Audio is off by default. Immersive VR always starts silent.");
+  const [audioStatus, setAudioStatus] = useState("Audio is off by default. Enable it deliberately before 2D or immersive playback.");
   const [broadcastState, setBroadcastState] = useState<Record<string, unknown>>({ phase: "idle", listenerCount: 0 });
   const broadcasterRef = useRef<SceneBroadcaster | undefined>(undefined);
   const logsRef = useRef<LogRow[]>([]);
@@ -215,8 +215,8 @@ export default function StudyApp() {
   useEffect(() => () => { void audioEngine.dispose(); }, [audioEngine]);
 
   useEffect(() => {
-    if (!audioEnabled || xrActive) return;
-    audioEngine.setListenerPose(0, 1.6, 0, 0, 0, -1, 0, 1, 0);
+    if (!audioEnabled) return;
+    if (!xrActive) audioEngine.setListenerPose(0, 1.6, 0, 0, 0, -1, 0, 1, 0);
     audioEngine.update(scene);
   }, [audioEnabled, audioEngine, scene, xrActive]);
 
@@ -578,11 +578,9 @@ export default function StudyApp() {
   };
 
   const silenceSpatialAudio = useCallback(() => {
-    // The engine clears its graph synchronously before awaiting AudioContext.close(),
-    // so a restored Quest Browser tab cannot carry prior 2D audio into WebXR.
     void audioEngine.dispose();
     setAudioEnabled(false);
-    setAudioStatus("Audio is off by default. Immersive VR always starts silent.");
+    setAudioStatus("Audio is off by default. Enable it deliberately before 2D or immersive playback.");
   }, [audioEngine]);
 
   const toggleSpatialAudio = async () => {
@@ -593,14 +591,14 @@ export default function StudyApp() {
     if (audioEnabled) {
       await audioEngine.dispose();
       setAudioEnabled(false);
-      setAudioStatus("Audio is off by default. Immersive VR always starts silent.");
+      setAudioStatus("Audio is off by default. Enable it deliberately before 2D or immersive playback.");
       return;
     }
     try {
       await audioEngine.enable();
       audioEngine.update(sceneRef.current);
       setAudioEnabled(true);
-      setAudioStatus("HRTF audio enabled for 2D only · begin at low device volume.");
+      setAudioStatus("HRTF threat audio armed for 2D and the next immersive session · begin at low device volume.");
     } catch (error) {
       setAudioStatus(error instanceof Error ? error.message : String(error));
     }
@@ -663,9 +661,6 @@ export default function StudyApp() {
 
     // Do not await the data link before requestSession: the WebXR request must
     // remain directly inside this user gesture on Quest Browser.
-    // Audio teardown is also dispatched without awaiting so requestSession
-    // retains the same trusted activation while immersive entry starts silent.
-    silenceSpatialAudio();
     void startBroadcast();
     xrPhaseRef.current = "entering";
     setXrPhase("entering");
@@ -684,7 +679,7 @@ export default function StudyApp() {
       setShowXrPreview(true);
       if (!runtimeRef.current.running || isScenarioComplete(sceneRef.current)) startScenario(requestId ? "companion" : "trial");
       else if (runtimeRef.current.paused) pauseScenario(requestId ? "companion" : "trial");
-      setXrStatus(`${mode === "passthrough" ? "Mixed-reality" : "Immersive 3D"} trial running silently. A resumes/restarts; either trigger pauses.`);
+      setXrStatus(`${mode === "passthrough" ? "Mixed-reality" : "Immersive 3D"} trial running ${audioEngine.enabled ? "with spatial audio" : "silently"}. A resumes/restarts; either trigger pauses.`);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       setXrStatus(message);
@@ -696,7 +691,7 @@ export default function StudyApp() {
         recordReceipt({ requestId, action: "request-xr", status: "failed", reason: "request-session-failed", message });
       } else bumpHostRevision();
     }
-  }, [bumpHostRevision, pauseScenario, recordReceipt, silenceSpatialAudio, startBroadcast, startScenario, xrEngineReady]);
+  }, [audioEngine, bumpHostRevision, pauseScenario, recordReceipt, startBroadcast, startScenario, xrEngineReady]);
 
   const dismissPendingXr = useCallback(() => {
     const pending = pendingXrRequestRef.current;
@@ -903,7 +898,7 @@ export default function StudyApp() {
                     <select value={config.threatKind} disabled={xrActive || (scene.running && !isScenarioComplete(scene))} onChange={(event) => updateConfig("threatKind", event.target.value as ThreatKind)}>
                       <option value="shadow">Shrouded shadow</option>
                       <option value="angry-agent">Angry agent</option>
-                      <option value="spider">Huntsman spider</option>
+                      <option value="spider">Articulated spider</option>
                     </select>
                   </label>
                   <label>Crowd avatars
@@ -920,21 +915,21 @@ export default function StudyApp() {
                   </label>
                   <label>2D background
                     <select value={config.mode} disabled={xrActive} onChange={(event) => updateConfig("mode", event.target.value as SceneMode)}>
-                      <option value="virtual">Dusk clearing</option>
+                      <option value="virtual">Dusk forest clearing</option>
                       <option value="passthrough">Neutral study grid</option>
                     </select>
                   </label>
                   <label className="check-field"><input type="checkbox" checked={config.loop} disabled={scene.running && !isScenarioComplete(scene)} onChange={(event) => updateConfig("loop", event.target.checked)} />Loop after completion</label>
                 </div>
-                <p className="microcopy">Minimal and 2D human-proportioned faces share an evidence-grounded SVG morph system; procedural 3D faces wrap onto the head sphere rather than a flat plate. The exact faces and transitions still require target-population validation. The human 3D option uses the CC BY 4.0 Cesium Man model. Avatar style does not change positions, timing, or behavior.</p>
+                <p className="microcopy">Minimal and 2D human-proportioned faces share an evidence-grounded SVG morph system; procedural 3D faces use texture-free vector meshes conformed directly to the head sphere rather than a flat plate. The exact faces and transitions still require target-population validation. The human 3D option uses the CC BY 4.0 Cesium Man model. Avatar style does not change positions, timing, or behavior.</p>
               </section>
 
               <section className="control-card audio-card">
                 <div className="card-heading"><div><span>02</span><h2>Spatial sound</h2></div><small className={audioEnabled ? "online" : ""}>{audioEnabled ? "HRTF on" : "Off"}</small></div>
-                <p className="addon-copy">Dyads exchange consonant friendly-tone prototypes. The threat adds a spatially looming inharmonic drone, 47/83 Hz rough modulation, accelerating low pulses, and—on the spider—brief chitter-like clicks.</p>
-                <button className={`button ${audioEnabled ? "ghost" : "link-button"}`} type="button" disabled={xrActive} onClick={() => void toggleSpatialAudio()}>{audioEnabled ? "Disable spatial audio" : "Enable spatial audio for 2D"}</button>
+                <p className="addon-copy">The moving threat carries a PPS-derived 30 ms broadband burst train for localization, followed during its final three seconds by a methods-derived 70 Hz rough harmonic cue. HRTF direction follows the live 3D visual anchor—including the spider’s lower height—while relative distance level and propagation delay follow proximity.</p>
+                <button className={`button ${audioEnabled ? "ghost" : "link-button"}`} type="button" disabled={xrActive} onClick={() => void toggleSpatialAudio()}>{audioEnabled ? "Disable spatial audio" : "Enable spatial audio"}</button>
                 <p className="status-line" role="status">{audioStatus}</p>
-                <p className="microcopy">Immersive VR/MR starts and remains silent; entering XR closes any earlier 2D audio graph. Optional 2D audio still requires a deliberate click. Use headphones, begin at low volume, and measure actual output before participant use.</p>
+                <p className="microcopy">Audio never starts automatically or from a remote command. If enabled locally before entry, it remains spatialized in VR/MR from the live headset pose. The generated cues are traceable reconstructions/adaptations—not the authors’ original WAVs or a validated composite.</p>
               </section>
 
               <section className="control-card xr-addon-card">
@@ -946,7 +941,7 @@ export default function StudyApp() {
                       <XrScene
                         ref={xrRef}
                         snapshot={scene}
-                        audioEngine={audioEnabled && !xrActive ? audioEngine : undefined}
+                        audioEngine={audioEnabled ? audioEngine : undefined}
                         onFrame={advanceScenarioFrame}
                         onReady={handleXrReady}
                         onStartRequest={handleXrStart}
@@ -1075,7 +1070,7 @@ export default function StudyApp() {
                 <div className="field-grid remote-fields">
                   <label>Threat
                     <select value={remoteScene?.config.threatKind ?? "shadow"} disabled={receiverState.phase !== "live" || Boolean(pendingCommand) || Boolean(remoteScene?.running && remoteScene.phase !== "complete") || remoteHost?.xr.phase === "active"} onChange={(event) => sendCommand({ action: "set-threat", value: event.target.value as ThreatKind })}>
-                      <option value="shadow">Shrouded shadow</option><option value="angry-agent">Angry agent</option><option value="spider">Huntsman spider</option>
+                      <option value="shadow">Shrouded shadow</option><option value="angry-agent">Angry agent</option><option value="spider">Articulated spider</option>
                     </select>
                   </label>
                   <label>Crowd avatars
@@ -1090,7 +1085,7 @@ export default function StudyApp() {
                   </label>
                   <label>Scene background
                     <select value={remoteScene?.config.mode ?? "virtual"} disabled={receiverState.phase !== "live" || Boolean(pendingCommand) || remoteHost?.xr.phase === "active"} onChange={(event) => sendCommand({ action: "set-mode", value: event.target.value as SceneMode })}>
-                      <option value="virtual">Dusk clearing</option><option value="passthrough">Neutral study grid</option>
+                      <option value="virtual">Dusk forest clearing</option><option value="passthrough">Neutral study grid</option>
                     </select>
                   </label>
                   <label className="check-field"><input type="checkbox" checked={remoteScene?.config.loop ?? false} disabled={receiverState.phase !== "live" || Boolean(pendingCommand) || Boolean(remoteScene?.running && remoteScene.phase !== "complete")} onChange={(event) => sendCommand({ action: "set-loop", value: event.target.checked })} />Loop after completion</label>
@@ -1109,7 +1104,7 @@ export default function StudyApp() {
         </section>
       )}
 
-      <footer><span>Social Threat Lab · schema v4</span><span>Six social dyads · HRTF audio · optional WebXR · VDO.Ninja SDK 1.5.5</span></footer>
+      <footer><span>Social Threat Lab · schema v5</span><span>Six social dyads · HRTF audio · optional WebXR · VDO.Ninja SDK 1.5.5</span></footer>
     </main>
   );
 }

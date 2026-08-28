@@ -1,4 +1,11 @@
 import type { AudioCue, SceneSnapshot } from "./scenario";
+import {
+  TAFFOU_ROUGHNESS_PROFILE,
+  dbToLinear,
+  ppsBurstEnvelopeAt,
+  propagationDelaySeconds,
+  threatDistanceGain,
+} from "./threat-audio-protocol.ts";
 
 type LegacyAudioParam = AudioParam & { setValueAtTime(value: number, startTime: number): AudioParam };
 type LegacyAudioListener = AudioListener & {
@@ -19,17 +26,33 @@ function setPannerPosition(panner: PannerNode, x: number, y: number, z: number) 
   } else panner.setPosition(x, y, z);
 }
 
-function cueHeight(cue: AudioCue) {
-  return cue.sourceId === "threat" ? 1.55 : 1.42;
+interface ActiveCueGraph {
+  panner: PannerNode;
+  distanceGain?: GainNode;
+  propagationDelay?: DelayNode;
+  disconnect: AudioNode[];
+}
+
+function deterministicGaussian(sampleIndex: number, seed: number) {
+  const uniform = (index: number, salt: number) => {
+    let value = Math.imul(index ^ salt, 0x45d9f3b);
+    value = Math.imul(value ^ (value >>> 16), 0x45d9f3b);
+    value ^= value >>> 16;
+    return ((value >>> 0) + 1) / 0x1_0000_0001;
+  };
+  const first = uniform(sampleIndex, seed);
+  const second = uniform(sampleIndex, seed ^ 0x9e3779b9);
+  return Math.max(-1, Math.min(1, Math.sqrt(-2 * Math.log(first)) * Math.cos(2 * Math.PI * second) / 3));
 }
 
 export class SpatialAudioEngine {
   private context?: AudioContext;
   private master?: GainNode;
-  private active = new Map<string, PannerNode>();
+  private active = new Map<string, ActiveCueGraph>();
   private seen = new Set<string>();
   private lastSession = "";
   private lastElapsedMs = 0;
+  private paused = false;
 
   get enabled() {
     return Boolean(this.context && this.context.state !== "closed");
@@ -93,52 +116,98 @@ export class SpatialAudioEngine {
     if (!context || !this.master || context.state !== "running") return;
     this.master.gain.setTargetAtTime(snapshot.paused || !snapshot.running ? 0.0001 : 0.24, context.currentTime, 0.018);
     if (snapshot.sessionId !== this.lastSession || snapshot.elapsedMs + 100 < this.lastElapsedMs) {
-      for (const panner of this.active.values()) panner.disconnect();
-      this.active.clear();
+      this.clearActiveCues();
       this.seen.clear();
       this.lastSession = snapshot.sessionId;
     }
+    if (snapshot.paused && !this.paused) {
+      const interruptedCueIds = [...this.active.keys()];
+      this.clearActiveCues();
+      interruptedCueIds.forEach((id) => this.seen.delete(id));
+    }
+    this.paused = snapshot.paused;
     this.lastElapsedMs = snapshot.elapsedMs;
 
     for (const cue of snapshot.audioCues) {
-      const panner = this.active.get(cue.id);
-      if (panner) setPannerPosition(panner, cue.x, cueHeight(cue), cue.z);
-      else if (!snapshot.paused && !this.seen.has(cue.id)) this.play(cue, snapshot.elapsedMs);
+      const active = this.active.get(cue.id);
+      if (active) {
+        setPannerPosition(active.panner, cue.x, cue.y, cue.z);
+        if (cue.sourceId === "threat") this.updateThreatDistance(active, snapshot.threat.distance);
+      } else if (!snapshot.paused && !this.seen.has(cue.id)) {
+        this.play(cue, snapshot.elapsedMs, snapshot.threat.distance);
+      }
     }
   }
 
-  private play(cue: AudioCue, elapsedMs: number) {
+  private updateThreatDistance(active: ActiveCueGraph, distanceM: number) {
+    const context = this.context!;
+    const at = context.currentTime;
+    active.distanceGain?.gain.setTargetAtTime(threatDistanceGain(distanceM), at, 0.025);
+    active.propagationDelay?.delayTime.setTargetAtTime(propagationDelaySeconds(distanceM), at, 0.025);
+  }
+
+  private clearActiveCues() {
+    for (const active of this.active.values()) {
+      for (const node of active.disconnect) {
+        try { node.disconnect(); } catch { /* already disconnected */ }
+      }
+    }
+    this.active.clear();
+  }
+
+  private play(cue: AudioCue, elapsedMs: number, threatDistanceM: number) {
     const context = this.context!;
     const master = this.master!;
     const remainingSeconds = Math.max(0.12, (cue.durationMs - Math.max(0, elapsedMs - cue.startedAtMs)) / 1_000);
     const now = context.currentTime;
     const stopAt = now + remainingSeconds;
+    const isThreat = cue.sourceId === "threat";
     const panner = context.createPanner();
     panner.panningModel = "HRTF";
-    panner.distanceModel = "inverse";
+    panner.distanceModel = isThreat ? "linear" : "inverse";
     panner.refDistance = 1.15;
-    panner.maxDistance = 24;
-    panner.rolloffFactor = 0.78;
-    panner.coneInnerAngle = 130;
-    panner.coneOuterAngle = 260;
-    panner.coneOuterGain = 0.35;
-    setPannerPosition(panner, cue.x, cueHeight(cue), cue.z);
+    panner.maxDistance = isThreat ? 32 : 24;
+    panner.rolloffFactor = isThreat ? 0 : 0.78;
+    panner.coneInnerAngle = isThreat ? 360 : 130;
+    panner.coneOuterAngle = isThreat ? 360 : 260;
+    panner.coneOuterGain = isThreat ? 1 : 0.35;
+    setPannerPosition(panner, cue.x, cue.y, cue.z);
     panner.connect(master);
 
     const envelope = context.createGain();
+    const attackSeconds = isThreat ? 0.018 : Math.min(0.09, remainingSeconds * 0.2);
+    const releaseAt = Math.max(now + attackSeconds, stopAt - 0.025);
     envelope.gain.setValueAtTime(0.0001, now);
-    envelope.gain.exponentialRampToValueAtTime(Math.max(0.015, cue.gain), now + Math.min(0.09, remainingSeconds * 0.2));
-    envelope.gain.exponentialRampToValueAtTime(0.0001, Math.max(now + 0.11, stopAt - 0.025));
-    envelope.connect(panner);
+    envelope.gain.exponentialRampToValueAtTime(Math.max(0.015, cue.gain), now + attackSeconds);
+    envelope.gain.setValueAtTime(Math.max(0.015, cue.gain), releaseAt);
+    envelope.gain.exponentialRampToValueAtTime(0.0001, stopAt);
 
-    if (cue.kind === "roughness" || cue.kind === "spider-menace") this.makeMenacingThreat(envelope, cue, elapsedMs, now, stopAt);
+    const active: ActiveCueGraph = { panner, disconnect: [panner, envelope] };
+    if (isThreat) {
+      const distanceGain = context.createGain();
+      const propagationDelay = context.createDelay(0.08);
+      distanceGain.gain.value = threatDistanceGain(threatDistanceM);
+      propagationDelay.delayTime.value = propagationDelaySeconds(threatDistanceM);
+      envelope.connect(distanceGain).connect(propagationDelay).connect(panner);
+      active.distanceGain = distanceGain;
+      active.propagationDelay = propagationDelay;
+      active.disconnect.push(distanceGain, propagationDelay);
+    } else {
+      envelope.connect(panner);
+    }
+
+    if (cue.kind === "pps-looming-bursts") this.makePpsBurstTrain(envelope, cue, elapsedMs, now, stopAt);
+    else if (cue.kind === "roughness" || cue.kind === "spider-menace") this.makeRoughThreat(envelope, now, stopAt);
     else if (cue.kind === "friendly") this.makeFriendlyCue(envelope, cue, now, stopAt);
     else this.makeVocalCue(envelope, cue, now, stopAt);
 
     this.seen.add(cue.id);
-    this.active.set(cue.id, panner);
+    this.active.set(cue.id, active);
     window.setTimeout(() => {
-      try { panner.disconnect(); } catch { /* already disconnected by reset/session change */ }
+      if (this.active.get(cue.id) !== active) return;
+      for (const node of active.disconnect) {
+        try { node.disconnect(); } catch { /* already disconnected by reset/session change */ }
+      }
       this.active.delete(cue.id);
     }, Math.ceil((remainingSeconds + 0.08) * 1_000));
   }
@@ -181,104 +250,66 @@ export class SpatialAudioEngine {
     }
   }
 
-  private makeMenacingThreat(destination: AudioNode, cue: AudioCue, elapsedMs: number, start: number, stop: number) {
+  private makePpsBurstTrain(destination: AudioNode, cue: AudioCue, elapsedMs: number, start: number, stop: number) {
     const context = this.context!;
-    const amplitude = context.createGain();
-    amplitude.gain.value = 0.48;
-    amplitude.connect(destination);
-
-    // Rough amplitude modulation sits inside the 30–150 Hz regime reported for
-    // screams and alarm signals by Arnal et al. (2015). The inharmonic carriers,
-    // slow pulse acceleration, and source-level HRTF motion are hypotheses to
-    // pilot, not a claim that this composite is already a validated stimulus.
-    for (const [rate, depth] of [[47, 0.17], [83, 0.12]] as const) {
-      const modulator = context.createOscillator();
-      const modulationDepth = context.createGain();
-      modulator.frequency.value = rate;
-      modulationDepth.gain.value = depth;
-      modulator.connect(modulationDepth).connect(amplitude.gain);
-      modulator.start(start);
-      modulator.stop(stop);
-    }
-
-    for (const [frequency, amount] of [[61, 0.34], [97, 0.20], [151, 0.12], [233, 0.07]] as const) {
-      const carrier = context.createOscillator();
-      const carrierGain = context.createGain();
-      carrier.type = frequency === 61 ? "sawtooth" : "triangle";
-      carrier.frequency.setValueAtTime(frequency, start);
-      carrier.frequency.exponentialRampToValueAtTime(frequency * 0.86, stop);
-      carrierGain.gain.value = amount;
-      carrier.connect(carrierGain).connect(amplitude);
-      carrier.start(start);
-      carrier.stop(stop);
-    }
-
-    const noiseLength = Math.max(1, Math.round(context.sampleRate * 0.73));
-    const noiseBuffer = context.createBuffer(1, noiseLength, context.sampleRate);
-    const noise = noiseBuffer.getChannelData(0);
-    let seed = cue.kind === "spider-menace" ? 0x51f15e : 0x7a11d;
-    for (let index = 0; index < noise.length; index += 1) {
-      seed = (Math.imul(seed, 1_664_525) + 1_013_904_223) >>> 0;
-      noise[index] = (seed / 0xffffffff) * 2 - 1;
+    const duration = Math.max(0.001, stop - start);
+    const sampleCount = Math.max(1, Math.ceil(duration * context.sampleRate));
+    const offsetSeconds = Math.max(0, (elapsedMs - cue.startedAtMs) / 1_000);
+    const offsetSamples = Math.round(offsetSeconds * context.sampleRate);
+    const buffer = context.createBuffer(1, sampleCount, context.sampleRate);
+    const channel = buffer.getChannelData(0);
+    for (let index = 0; index < channel.length; index += 1) {
+      const timeFromCueStart = offsetSeconds + index / context.sampleRate;
+      const burstEnvelope = ppsBurstEnvelopeAt(timeFromCueStart);
+      channel[index] = deterministicGaussian(offsetSamples + index, 0x505053) * burstEnvelope;
     }
     const noiseSource = context.createBufferSource();
-    const noiseFilter = context.createBiquadFilter();
-    const noiseGain = context.createGain();
-    noiseSource.buffer = noiseBuffer;
-    noiseSource.loop = true;
-    noiseFilter.type = "bandpass";
-    noiseFilter.frequency.value = cue.kind === "spider-menace" ? 1_950 : 330;
-    noiseFilter.Q.value = cue.kind === "spider-menace" ? 1.8 : 0.72;
-    noiseGain.gain.value = cue.kind === "spider-menace" ? 0.075 : 0.045;
-    noiseSource.connect(noiseFilter).connect(noiseGain).connect(amplitude);
+    const sourceGain = context.createGain();
+    noiseSource.buffer = buffer;
+    sourceGain.gain.value = 0.32;
+    noiseSource.connect(sourceGain).connect(destination);
     noiseSource.start(start);
     noiseSource.stop(stop);
+  }
 
-    const totalSeconds = Math.max(0.5, cue.durationMs / 1_000);
-    const offsetSeconds = Math.max(0, (elapsedMs - cue.startedAtMs) / 1_000);
-    let localTime = 0;
-    while (start + localTime < stop - 0.08) {
-      const progress = Math.min(1, (offsetSeconds + localTime) / totalSeconds);
-      const pulseStart = start + localTime;
-      const pulseEnd = Math.min(stop, pulseStart + 0.42);
-      const pulseGain = context.createGain();
-      pulseGain.gain.setValueAtTime(0.0001, pulseStart);
-      pulseGain.gain.exponentialRampToValueAtTime(0.16 + progress * 0.11, pulseStart + 0.018);
-      pulseGain.gain.exponentialRampToValueAtTime(0.0001, pulseEnd);
-      pulseGain.connect(destination);
-      const pulse = context.createOscillator();
-      pulse.type = "sine";
-      pulse.frequency.setValueAtTime(cue.kind === "spider-menace" ? 57 : 49, pulseStart);
-      pulse.frequency.exponentialRampToValueAtTime(29, pulseEnd);
-      pulse.connect(pulseGain);
-      pulse.start(pulseStart);
-      pulse.stop(pulseEnd);
+  private makeRoughThreat(destination: AudioNode, start: number, stop: number) {
+    const context = this.context!;
+    const modulationGain = context.createGain();
+    const levelAdjustment = dbToLinear(TAFFOU_ROUGHNESS_PROFILE.roughLevelAdjustmentDb);
+    modulationGain.gain.value = levelAdjustment * 0.5;
+    modulationGain.connect(destination);
 
-      if (cue.kind === "spider-menace") {
-        for (let click = 0; click < 3; click += 1) {
-          const clickStart = pulseStart + 0.055 + click * 0.047;
-          if (clickStart >= stop - 0.02) break;
-          const clickGain = context.createGain();
-          clickGain.gain.setValueAtTime(0.0001, clickStart);
-          clickGain.gain.exponentialRampToValueAtTime(0.035 + progress * 0.025, clickStart + 0.004);
-          clickGain.gain.exponentialRampToValueAtTime(0.0001, clickStart + 0.032);
-          clickGain.connect(destination);
-          const clickOscillator = context.createOscillator();
-          clickOscillator.type = "square";
-          clickOscillator.frequency.value = 760 + click * 287;
-          clickOscillator.connect(clickGain);
-          clickOscillator.start(clickStart);
-          clickOscillator.stop(clickStart + 0.035);
-        }
-      }
-      localTime += 1.72 - progress * 1.16;
-    }
+    // Methods-derived reconstruction of the published three-second defensive
+    // roughness stimulus. The paper reports the upper partials only as "around"
+    // 0.25, so this remains a reconstruction requiring validation, not the
+    // authors' original waveform.
+    const modulator = context.createOscillator();
+    const modulationDepth = context.createGain();
+    modulator.type = "sine";
+    modulator.frequency.value = TAFFOU_ROUGHNESS_PROFILE.modulationHz;
+    modulationDepth.gain.value = levelAdjustment * 0.5 * TAFFOU_ROUGHNESS_PROFILE.modulationDepth;
+    modulator.connect(modulationDepth).connect(modulationGain.gain);
+    modulator.start(start);
+    modulator.stop(stop);
+
+    const amplitudeTotal = TAFFOU_ROUGHNESS_PROFILE.relativeAmplitudes.reduce((sum, value) => sum + value, 0);
+    TAFFOU_ROUGHNESS_PROFILE.harmonicFrequenciesHz.forEach((frequency, index) => {
+      const oscillator = context.createOscillator();
+      const partialGain = context.createGain();
+      oscillator.type = "sine";
+      oscillator.frequency.value = frequency;
+      partialGain.gain.value = TAFFOU_ROUGHNESS_PROFILE.relativeAmplitudes[index] / amplitudeTotal;
+      oscillator.connect(partialGain).connect(modulationGain);
+      oscillator.start(start);
+      oscillator.stop(stop);
+    });
   }
 
   async dispose() {
     const context = this.context;
-    this.active.clear();
+    this.clearActiveCues();
     this.seen.clear();
+    this.paused = false;
     this.context = undefined;
     this.master = undefined;
     if (context && context.state !== "closed") await context.close();

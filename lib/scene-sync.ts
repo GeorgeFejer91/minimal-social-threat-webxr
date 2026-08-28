@@ -6,6 +6,7 @@ import {
   type SceneSnapshot,
   type ThreatKind,
 } from "./scenario.ts";
+import { THREAT_AUDIO_PROTOCOL, isThreatAudioProtocolSnapshot } from "./threat-audio-protocol.ts";
 
 export const SCENE_SYNC_ROOM = "minimal_social_threat_bridge_v2";
 export const SCENE_SYNC_STREAM_PREFIX = "mst_bridge_v2_";
@@ -237,6 +238,7 @@ function normalizeSnapshot(value: unknown): SceneSnapshot | undefined {
     || !Array.isArray(item.agents) || item.agents.length !== 12
     || !Array.isArray(item.socialLinks) || item.socialLinks.length > 12
     || !Array.isArray(item.audioCues) || item.audioCues.length > 4
+    || !isThreatAudioProtocolSnapshot(item.audioProtocol)
     || !isRecord(item.threat)
     || !isFiniteNumber(item.minimumThreatDistance) || item.minimumThreatDistance <= 0
     || (item.lastCommandId !== undefined && !isBoundedId(item.lastCommandId))) return undefined;
@@ -263,8 +265,9 @@ function normalizeSnapshot(value: unknown): SceneSnapshot | undefined {
     const cue = candidate as unknown as SceneSnapshot["audioCues"][number];
     if (!isBoundedId(cue.id, 128) || !isBoundedId(cue.sourceId, 40)
       || !isBoundedString(cue.text, 80)
-      || !["friendly", "murmur", "acknowledge", "warning", "gasp", "roughness", "spider-menace"].includes(cue.kind)
-      || !isFiniteNumber(cue.x) || !isFiniteNumber(cue.z) || !isFiniteNumber(cue.gain)
+      || !["friendly", "murmur", "acknowledge", "warning", "gasp", "pps-looming-bursts", "roughness", "spider-menace"].includes(cue.kind)
+      || !isFiniteNumber(cue.x) || !isFiniteNumber(cue.y) || cue.y < 0 || cue.y > 3
+      || !isFiniteNumber(cue.z) || !isFiniteNumber(cue.gain)
       || !isFiniteNumber(cue.startedAtMs) || !isFiniteNumber(cue.durationMs) || cue.durationMs < 0) return undefined;
     audioCues.push({
       id: cue.id,
@@ -272,6 +275,7 @@ function normalizeSnapshot(value: unknown): SceneSnapshot | undefined {
       kind: cue.kind,
       text: cue.text,
       x: cue.x,
+      y: cue.y,
       z: cue.z,
       gain: cue.gain,
       startedAtMs: cue.startedAtMs,
@@ -303,6 +307,7 @@ function normalizeSnapshot(value: unknown): SceneSnapshot | undefined {
     agents,
     socialLinks,
     audioCues,
+    audioProtocol: THREAT_AUDIO_PROTOCOL,
     threat: {
       kind: threat.kind,
       x: threat.x,

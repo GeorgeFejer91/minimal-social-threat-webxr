@@ -18,6 +18,6 @@
 - Source record: https://sketchfab.com/3d-models/cc0-huntsman-spider-h-venatoria-c92eb0f93c5c4463919c64390ee82c37
 - License: CC0 1.0 Universal / public-domain dedication.
 - SHA-256: `efc9cfda2b8a198277d6a1b10ca8123460d909deb76400ccddcb495d355bb5ca`
-- Local use: optional spider threat mesh in WebGL/WebXR, with a procedural fallback while it loads.
+- Local use: retained provenance/reference file only. The runtime uses a project-authored articulated spider because this GLB is unrigged and contains a separate cube prop.
 
 These files are redistributed unmodified. Their inclusion does not mean the models, this scene, or the resulting combined stimuli are scientifically validated.

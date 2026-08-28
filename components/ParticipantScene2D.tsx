@@ -2,7 +2,9 @@
 
 import { useEffect, useRef } from "react";
 import { drawFaceGeometry, scenarioFaceGeometry } from "../lib/facial-expression";
+import { FOREST_TREES, type ForestTree } from "../lib/forest-layout";
 import type { AgentState, Expression, SceneSnapshot } from "../lib/scenario";
+import { spiderMotionPose } from "../lib/spider-motion";
 
 interface ParticipantScene2DProps {
   snapshot: SceneSnapshot;
@@ -25,6 +27,100 @@ function roundedRect(
   context.beginPath();
   context.roundRect(x, y, width, height, radius);
   context.fill();
+}
+
+const BROADLEAF_COLORS = [
+  ["#153f34", "#20513e", "#2e6549"],
+  ["#194638", "#285b43", "#397052"],
+  ["#1d4d39", "#306348", "#427858"],
+] as const;
+
+const PINE_COLORS = [
+  ["#0f3932", "#17483b", "#245b47"],
+  ["#123f35", "#1c5040", "#2b644b"],
+  ["#17463a", "#235844", "#347052"],
+] as const;
+
+function drawForestTree2D(
+  context: CanvasRenderingContext2D,
+  tree: ForestTree,
+  x: number,
+  groundY: number,
+  height: number,
+  alpha: number,
+) {
+  context.save();
+  context.globalAlpha = alpha;
+  context.translate(x, groundY);
+
+  const trunkWidth = height * (tree.species === "pine" ? 0.075 : 0.105);
+  const trunkHeight = height * (tree.species === "pine" ? 0.78 : 0.66);
+  const trunkGradient = context.createLinearGradient(-trunkWidth, 0, trunkWidth, 0);
+  trunkGradient.addColorStop(0, "#2b211c");
+  trunkGradient.addColorStop(0.5, "#604a38");
+  trunkGradient.addColorStop(1, "#34271f");
+  context.fillStyle = trunkGradient;
+  context.beginPath();
+  context.moveTo(-trunkWidth * 0.68, -trunkHeight);
+  context.lineTo(trunkWidth * 0.65, -trunkHeight);
+  context.lineTo(trunkWidth, 0);
+  context.lineTo(-trunkWidth, 0);
+  context.closePath();
+  context.fill();
+
+  context.strokeStyle = "rgba(104, 78, 58, .82)";
+  context.lineCap = "round";
+  context.lineWidth = Math.max(1, trunkWidth * 0.38);
+  for (const [side, branchY, reach] of [[-1, -0.53, 0.3], [1, -0.44, 0.27], [-1, -0.35, 0.22]] as const) {
+    context.beginPath();
+    context.moveTo(0, trunkHeight * branchY);
+    context.lineTo(side * height * reach, trunkHeight * (branchY - 0.25));
+    context.stroke();
+  }
+
+  if (tree.species === "pine") {
+    const colors = PINE_COLORS[tree.tone];
+    for (let tier = 0; tier < 4; tier += 1) {
+      const tierY = -height * (0.25 + tier * 0.18);
+      const halfWidth = height * (0.39 - tier * 0.065);
+      const tierHeight = height * 0.34;
+      context.fillStyle = colors[tier % colors.length];
+      context.beginPath();
+      context.moveTo(0, tierY - tierHeight);
+      context.bezierCurveTo(-halfWidth * 0.22, tierY - tierHeight * 0.5, -halfWidth * 0.7, tierY - tierHeight * 0.1, -halfWidth, tierY);
+      context.quadraticCurveTo(-halfWidth * 0.35, tierY - tierHeight * 0.08, 0, tierY + tierHeight * 0.05);
+      context.quadraticCurveTo(halfWidth * 0.35, tierY - tierHeight * 0.08, halfWidth, tierY);
+      context.bezierCurveTo(halfWidth * 0.7, tierY - tierHeight * 0.1, halfWidth * 0.22, tierY - tierHeight * 0.5, 0, tierY - tierHeight);
+      context.fill();
+    }
+  } else {
+    const colors = BROADLEAF_COLORS[tree.tone];
+    const clusters = [
+      [-0.28, -0.68, 0.34, 0.27],
+      [0.25, -0.7, 0.36, 0.29],
+      [-0.03, -0.89, 0.38, 0.31],
+      [-0.39, -0.49, 0.3, 0.24],
+      [0.39, -0.51, 0.31, 0.25],
+      [0.02, -0.52, 0.42, 0.3],
+    ] as const;
+    for (let index = 0; index < clusters.length; index += 1) {
+      const [offsetX, offsetY, radiusX, radiusY] = clusters[index];
+      context.fillStyle = colors[index % colors.length];
+      context.beginPath();
+      context.ellipse(offsetX * height, offsetY * height, radiusX * height, radiusY * height, index * 0.18, 0, Math.PI * 2);
+      context.fill();
+    }
+    context.fillStyle = "rgba(124, 159, 94, .18)";
+    context.beginPath();
+    context.ellipse(-height * 0.14, -height * 0.82, height * 0.2, height * 0.11, -0.45, 0, Math.PI * 2);
+    context.fill();
+  }
+
+  context.fillStyle = "rgba(8, 22, 17, .42)";
+  context.beginPath();
+  context.ellipse(0, height * 0.02, height * 0.25, height * 0.055, 0, 0, Math.PI * 2);
+  context.fill();
+  context.restore();
 }
 
 function drawFace(context: CanvasRenderingContext2D, x: number, y: number, size: number, expression: Expression, fear = 1) {
@@ -194,51 +290,78 @@ function drawThreat(
     if (snapshot.threat.visibility <= 0.005) return;
     context.save();
     context.globalAlpha = snapshot.threat.visibility;
-    const bodyY = point.y + size * 0.55;
-    const pulse = 1 + Math.sin(snapshot.elapsedMs * 0.013) * 0.035;
+    const motion = spiderMotionPose(snapshot.elapsedMs, snapshot.phase, snapshot.config.intensity);
+    const bodyY = point.y + size * 0.47 - motion.bodyBob * size * 1.8;
+
+    context.fillStyle = "rgba(13, 6, 4, .42)";
+    context.beginPath();
+    context.ellipse(point.x, bodyY + size * 0.37, size * 0.86, size * 0.14, 0, 0, Math.PI * 2);
+    context.fill();
+
     context.strokeStyle = "#1a100d";
-    context.lineWidth = Math.max(3, size * 0.085);
+    context.lineWidth = Math.max(2.5, size * 0.07);
     context.lineCap = "round";
-    for (let leg = 0; leg < 4; leg += 1) {
-      const vertical = (leg - 1.5) * size * 0.13;
-      const reach = size * (0.74 + Math.abs(leg - 1.5) * 0.12) * pulse;
-      for (const side of [-1, 1]) {
-        context.beginPath();
-        context.moveTo(point.x + side * size * 0.18, bodyY + vertical * 0.18);
-        context.lineTo(point.x + side * reach * 0.62, bodyY + vertical - size * 0.09);
-        context.lineTo(point.x + side * reach, bodyY + vertical + size * 0.18);
-        context.stroke();
-      }
+    for (const leg of motion.legs) {
+      const reach = size * (0.82 + Math.abs(leg.pair - 1.5) * 0.1);
+      const attachmentX = point.x + leg.side * size * 0.18;
+      const attachmentY = bodyY + leg.attachmentZ * size * 0.66;
+      const kneeX = attachmentX + leg.side * reach * (0.53 - leg.lift * 0.045);
+      const kneeY = attachmentY - Math.sin(leg.sweep) * reach * 0.3 - leg.lift * size * 0.1;
+      const footX = attachmentX + leg.side * reach * (0.96 - leg.lift * 0.12);
+      const footY = attachmentY - Math.sin(leg.sweep) * reach * 0.54 + leg.lift * size * 0.04;
+      context.beginPath();
+      context.moveTo(attachmentX, attachmentY);
+      context.lineTo(kneeX, kneeY);
+      context.lineTo(footX, footY);
+      context.stroke();
+      context.fillStyle = "#321b13";
+      context.beginPath(); context.arc(kneeX, kneeY, Math.max(2, size * 0.045), 0, Math.PI * 2); context.fill();
     }
+
     context.fillStyle = "#241410";
     context.beginPath();
-    context.ellipse(point.x, bodyY, size * 0.43 * pulse, size * 0.34 * pulse, 0, 0, Math.PI * 2);
+    context.ellipse(point.x, bodyY - size * 0.17, size * 0.43, size * 0.38, 0, 0, Math.PI * 2);
     context.fill();
+    context.strokeStyle = "rgba(157, 86, 51, .52)";
+    context.lineWidth = Math.max(1, size * 0.025);
+    for (const offset of [-0.12, 0.03]) {
+      context.beginPath();
+      context.ellipse(point.x, bodyY + size * offset, size * 0.34, size * 0.08, 0, 0, Math.PI * 2);
+      context.stroke();
+    }
+
     context.fillStyle = "#321a13";
     context.beginPath();
-    context.ellipse(point.x, bodyY - size * 0.37, size * 0.31, size * 0.28, 0, 0, Math.PI * 2);
+    context.ellipse(point.x, bodyY + size * 0.27, size * 0.31, size * 0.27, 0, 0, Math.PI * 2);
     context.fill();
     context.strokeStyle = "rgba(202, 141, 94, .38)";
     context.lineWidth = 1;
     for (let hair = -3; hair <= 3; hair += 1) {
       context.beginPath();
-      context.moveTo(point.x + hair * size * 0.08, bodyY - size * 0.12);
-      context.lineTo(point.x + hair * size * 0.11, bodyY - size * 0.39);
+      context.moveTo(point.x + hair * size * 0.07, bodyY + size * 0.05);
+      context.lineTo(point.x + hair * size * 0.1, bodyY - size * 0.32);
       context.stroke();
     }
-    context.fillStyle = "#090504";
-    context.beginPath();
-    context.moveTo(point.x - size * 0.13, bodyY - size * 0.55);
-    context.lineTo(point.x - size * 0.04, bodyY - size * 0.36);
-    context.lineTo(point.x - size * 0.19, bodyY - size * 0.38);
-    context.closePath();
-    context.fill();
-    context.beginPath();
-    context.moveTo(point.x + size * 0.13, bodyY - size * 0.55);
-    context.lineTo(point.x + size * 0.04, bodyY - size * 0.36);
-    context.lineTo(point.x + size * 0.19, bodyY - size * 0.38);
-    context.closePath();
-    context.fill();
+
+    context.fillStyle = "#b4482a";
+    for (const [eyeX, eyeY, radius] of [
+      [-0.09, 0.36, 0.038], [0.09, 0.36, 0.038],
+      [-0.19, 0.31, 0.027], [0.19, 0.31, 0.027],
+      [-0.13, 0.43, 0.021], [0.13, 0.43, 0.021],
+    ]) {
+      context.beginPath();
+      context.arc(point.x + size * eyeX, bodyY + size * eyeY, Math.max(1.2, size * radius), 0, Math.PI * 2);
+      context.fill();
+    }
+    context.strokeStyle = "#0c0605";
+    context.lineWidth = Math.max(2, size * 0.055);
+    for (const side of [-1, 1]) {
+      context.beginPath();
+      context.moveTo(point.x + side * size * 0.09, bodyY + size * 0.42);
+      context.lineTo(point.x + side * size * (0.12 + motion.mandible * 0.16), bodyY + size * 0.61);
+      context.stroke();
+    }
+
     context.fillStyle = "rgba(12, 6, 4, .86)";
     roundedRect(context, point.x - size * 0.52, point.y - size * 0.56, size * 1.04, size * 0.24, size * 0.12);
     context.fillStyle = "#ffd8c7";
@@ -284,7 +407,9 @@ export function ParticipantScene2D({ snapshot }: ParticipantScene2DProps) {
 
     function draw() {
       const bounds = canvas!.getBoundingClientRect();
-      const ratio = Math.min(2, window.devicePixelRatio || 1);
+      const nativeRatio = Math.max(1, window.devicePixelRatio || 1);
+      const safeRatio = 8192 / Math.max(1, bounds.width, bounds.height);
+      const ratio = Math.max(1, Math.min(nativeRatio, safeRatio));
       const width = Math.max(300, Math.round(bounds.width * ratio));
       const height = Math.max(300, Math.round(bounds.height * ratio));
       if (canvas!.width !== width || canvas!.height !== height) {
@@ -316,16 +441,35 @@ export function ParticipantScene2D({ snapshot }: ParticipantScene2DProps) {
         context.beginPath();
         context.arc(w * 0.78, h * 0.13, Math.max(12, w * 0.025), 0, Math.PI * 2);
         context.fill();
-        context.fillStyle = "rgba(6, 21, 17, .42)";
-        for (let index = 0; index < 11; index += 1) {
-          const treeX = (index / 10) * w;
-          const treeHeight = h * (0.08 + (index % 3) * 0.018);
-          context.beginPath();
-          context.moveTo(treeX - w * 0.035, h * 0.34);
-          context.lineTo(treeX, h * 0.34 - treeHeight);
-          context.lineTo(treeX + w * 0.035, h * 0.34);
-          context.fill();
+
+        const pathGradient = context.createLinearGradient(0, h * 0.29, 0, h * 0.88);
+        pathGradient.addColorStop(0, "rgba(82, 110, 85, .18)");
+        pathGradient.addColorStop(1, "rgba(54, 76, 62, .42)");
+        context.fillStyle = pathGradient;
+        context.beginPath();
+        context.moveTo(w * 0.475, h * 0.29);
+        context.lineTo(w * 0.525, h * 0.29);
+        context.lineTo(w * 0.69, h * 0.88);
+        context.lineTo(w * 0.31, h * 0.88);
+        context.closePath();
+        context.fill();
+
+        const sortedForest = [...FOREST_TREES].sort((left, right) => left.z - right.z);
+        for (const tree of sortedForest) {
+          const depth = clamp((tree.z + 21) / 18);
+          const perspective = 0.68 + depth * 0.4;
+          const treeX = w * 0.5 + tree.x * w * 0.048 * perspective;
+          const groundY = h * (0.315 + depth * 0.14);
+          const treeHeight = h * (0.105 + tree.scale * 0.05) * (0.7 + depth * 0.35);
+          drawForestTree2D(context, tree, treeX, groundY, treeHeight, 0.52 + depth * 0.38);
         }
+
+        const mist = context.createLinearGradient(0, h * 0.22, 0, h * 0.43);
+        mist.addColorStop(0, "rgba(125, 168, 142, 0)");
+        mist.addColorStop(0.55, "rgba(125, 168, 142, .08)");
+        mist.addColorStop(1, "rgba(125, 168, 142, 0)");
+        context.fillStyle = mist;
+        context.fillRect(0, h * 0.2, w, h * 0.25);
       }
 
       const project = (x: number, z: number) => {

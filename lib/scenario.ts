@@ -1,4 +1,6 @@
-export const SCENE_SCHEMA_VERSION = 4 as const;
+import { THREAT_AUDIO_PROTOCOL, threatSourceHeightM, type ThreatAudioProtocolSnapshot } from "./threat-audio-protocol.ts";
+
+export const SCENE_SCHEMA_VERSION = 5 as const;
 
 export type ThreatKind = "shadow" | "angry-agent" | "spider";
 export type AgentStyle = "minimal" | "human";
@@ -7,7 +9,7 @@ export type SceneMode = "virtual" | "passthrough";
 export type Expression = "calm" | "alert" | "afraid" | "angry";
 export type AgentBehavior = "idle" | "meander" | "talk" | "listen" | "orient" | "startle" | "flee" | "freeze";
 export type ScenarioPhase = "ready" | "baseline" | "detected" | "approach" | "hold" | "complete";
-export type AudioCueKind = "friendly" | "murmur" | "acknowledge" | "warning" | "gasp" | "roughness" | "spider-menace";
+export type AudioCueKind = "friendly" | "murmur" | "acknowledge" | "warning" | "gasp" | "pps-looming-bursts" | "roughness" | "spider-menace";
 
 export interface ScenarioConfig {
   threatKind: ThreatKind;
@@ -48,6 +50,7 @@ export interface AudioCue {
   kind: AudioCueKind;
   text: string;
   x: number;
+  y: number;
   z: number;
   gain: number;
   startedAtMs: number;
@@ -72,6 +75,7 @@ export interface SceneSnapshot {
   agents: AgentState[];
   socialLinks: SocialLink[];
   audioCues: AudioCue[];
+  audioProtocol: ThreatAudioProtocolSnapshot;
   threat: ThreatState;
   minimumThreatDistance: number;
   lastCommandId?: string;
@@ -267,25 +271,43 @@ export function evaluateScenario(
         kind: event.kind,
         text: event.text,
         x: source?.x ?? threatX,
+        y: 1.42,
         z: source?.z ?? threatZ,
         gain: event.gain,
         startedAtMs: event.at,
         durationMs: event.duration,
       };
     }) : [];
-  const threatSoundStartMs = 11_200;
-  const threatSoundEndMs = (approachEnd + 4) * 1_000;
-  if (running && safeElapsedMs >= threatSoundStartMs && safeElapsedMs < threatSoundEndMs) {
+  const approachStartMs = APPROACH_START_SECONDS * 1_000;
+  const approachEndMs = approachEnd * 1_000;
+  const threatCueHeight = threatSourceHeightM(config.threatKind);
+  if (running && safeElapsedMs >= approachStartMs && safeElapsedMs < approachEndMs) {
     audioCues.push({
-      id: `${sessionId}:threat-loom`,
+      id: `${sessionId}:threat-localizer`,
+      sourceId: "threat",
+      kind: "pps-looming-bursts",
+      text: "PPS burst-train approach localizer",
+      x: threatX,
+      y: threatCueHeight,
+      z: threatZ,
+      gain: 0.22,
+      startedAtMs: approachStartMs,
+      durationMs: approachEndMs - approachStartMs,
+    });
+  }
+  const roughThreatStartMs = approachEndMs - 3_000;
+  if (running && safeElapsedMs >= roughThreatStartMs && safeElapsedMs < approachEndMs) {
+    audioCues.push({
+      id: `${sessionId}:threat-roughness`,
       sourceId: "threat",
       kind: config.threatKind === "spider" ? "spider-menace" : "roughness",
-      text: config.threatKind === "spider" ? "Looming spider chitter" : "Looming rough drone",
+      text: "Three-second 70 Hz rough defensive cue",
       x: threatX,
+      y: threatCueHeight,
       z: threatZ,
       gain: 0.34,
-      startedAtMs: threatSoundStartMs,
-      durationMs: threatSoundEndMs - threatSoundStartMs,
+      startedAtMs: roughThreatStartMs,
+      durationMs: 3_000,
     });
   }
   const speakingIds = new Set(audioCues.filter((cue) => cue.sourceId !== "threat").map((cue) => cue.sourceId));
@@ -316,11 +338,12 @@ export function evaluateScenario(
     agents,
     socialLinks,
     audioCues,
+    audioProtocol: THREAT_AUDIO_PROTOCOL,
     threat: {
       kind: config.threatKind,
       x: threatX,
       z: threatZ,
-      yaw: 0,
+      yaw: yawToward(threatX, threatZ, 0, 0),
       expression: "angry",
       distance: Math.hypot(threatX, threatZ),
       visibility: threatVisibility,

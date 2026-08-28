@@ -19,12 +19,12 @@ deterministic scenario evaluator
 
 ## Runtime planes
 
-- **Stimulus plane:** `lib/scenario.ts` returns schema-v4 snapshots from configuration, elapsed time, and session state.
-- **Visual plane:** `ParticipantScene2D.tsx`, `XrScene.tsx`, and `TopdownScene.tsx` render only snapshot fields. `lib/facial-expression.ts` is renderer-neutral visual geometry: it projects authoritative `expression` and continuous `fear` into shared SVG paths without inventing scenario timing.
-- **Audio plane:** `lib/spatial-audio.ts` can consume snapshot audio cues and create HRTF panners at authoritative source positions only after an explicit 2D opt-in. The application does not attach that engine to an active immersive session.
+- **Stimulus plane:** `lib/scenario.ts` returns schema-v5 snapshots from configuration, elapsed time, and session state. `lib/threat-audio-protocol.ts` owns the immutable dry-source, level, delay, renderer, and reference-revision parameters reported in each snapshot.
+- **Visual plane:** `ParticipantScene2D.tsx`, `XrScene.tsx`, and `TopdownScene.tsx` render only snapshot fields. `lib/facial-expression.ts` is renderer-neutral visual geometry: it projects authoritative `expression` and continuous `fear` into shared SVG paths without inventing scenario timing. `lib/forest-layout.ts` is shared deterministic scenery geometry; both participant renderers consume the same tree positions/species and preserve the tested threat corridor.
+- **Audio plane:** `lib/spatial-audio.ts` consumes snapshot audio cues only after a local opt-in, constructs generated dry sources, and places HRTF panners at authoritative 3D source positions. Threat height follows the visible kind (1.55 m shadow/angry agent; 0.42 m spider). In 2D the listener is the scenario origin; in WebXR `XrScene.tsx` updates it from the immersive camera pose. Entering XR never enables audio, but an already explicit opt-in remains attached.
 - **Control plane:** `StudyApp.tsx` owns direct 2D/immersive start, pause/reset/configuration, the authoritative clock accumulator, audio opt-in, bounded logging, and application of operator commands. Window animation frames advance time outside XR; while an immersive session is presenting, `XrScene.tsx` supplies XR animation-frame timestamps to the same accumulator so a suspended browser-window loop cannot freeze the scenario. WebXR entry starts or continues the trial from a trusted local click; right-controller A restarts/resumes and either trigger pauses.
-- **Asset plane:** On an XR-capable browser—or after an explicit browser-preview request—`XrScene.tsx` loads the local Cesium Man and Huntsman Spider GLBs in the background, retaining procedural agents/spider as immediate fallbacks. A non-WebGL 2D browser never has to mount the renderer. `agentStyle` and threat identity remain snapshot state rather than renderer-private choices. The project-authored face library is source geometry, not an external raster/model asset.
-- **Transport plane:** `lib/scene-sync.ts` carries schema-v4 scene state inside a version-2 envelope with host runtime readback, bounded receipts, and a strict command allowlist via the vendored VDO.Ninja SDK. Normal participant start begins broadcast; the dedicated `?view=headset` role begins hosting on entry; PC operator mode auto-starts discovery.
+- **Asset plane:** On an XR-capable browser—or after an explicit browser-preview request—`XrScene.tsx` loads the local Cesium Man GLB in the background while procedural agents remain immediately available. The spider is always the project-authored articulated rig; the former unrigged Huntsman GLB is retained only for provenance/reference and is not requested at runtime. A non-WebGL 2D browser never has to mount the renderer. `agentStyle` and threat identity remain snapshot state rather than renderer-private choices. The project-authored face and spider-motion libraries are source geometry/motion, not external raster/model assets.
+- **Transport plane:** `lib/scene-sync.ts` carries schema-v5 scene state inside a version-2 envelope with host runtime readback, bounded receipts, a strict audio-protocol identity, and a strict command allowlist via the vendored VDO.Ninja SDK. Normal participant start begins broadcast; the dedicated `?view=headset` role begins hosting on entry; PC operator mode auto-starts discovery.
 
 ## Scenario sequence
 
@@ -38,9 +38,16 @@ deterministic scenario evaluator
 
 The 1.8 m threat constraint is authoritative but intentionally invisible in the immersive renderer: VR contains neither a boundary ring nor an instructional warning billboard.
 
+## Forest corridor contract
+
+- The virtual dusk environment uses the fixed `FOREST_TREES` layout; it is not regenerated per participant or frame.
+- Every tree's full modeled canopy radius must clear the central ±2.4 m half-width lane. The lane contains the threat's lateral sway and the articulated spider's leg span with additional visual clearance.
+- Trees may vary in species, tone, scale, and rotation without entering that lane. Additions must pass `tests/forest-layout.test.ts`.
+- Canvas uses a perspective projection of the same layout. Three.js adds procedural trunks, branches, multi-cluster crowns or conifer tiers, root flares, shrubs, stones, a forest floor, path, and virtual-only fog. Tree parts are merged into material batches before entering the scene to keep draw-call pressure bounded. Passthrough hides the environment and fog.
+
 ## Synchronization contract
 
-- Snapshot schema: `4`, including twelve agents, avatar style, three threat kinds, and threat visibility.
+- Snapshot schema: `5`, including twelve agents, avatar style, three threat kinds, threat visibility, two separately scheduled threat-audio layers, and the exact compact audio-protocol identity.
 - VDO envelope/commands: version `2`, newest-state semantics, at most 20 Hz plus heartbeat. The transport version can evolve independently without changing the scenario schema.
 - Discovery room/channel: v2 transport-specific names, separating incompatible v1 peers.
 - Operator commands: start, pause, resume, reset, set threat, set avatar style, set intensity, set visual mode, set loop, request VR/MR, and exit XR. IDs, modes, values, versions, and object keys are strictly validated.
@@ -56,22 +63,34 @@ The 1.8 m threat constraint is authoritative but intentionally invisible in the 
 - An in-flight guard prevents concurrent entry requests. Runtime phases distinguish inline, awaiting local confirmation, entering, active, exiting, and error.
 - When immersive presentation begins, XR animation frames become clock authority and increment the aggregate frame readback. On session end, the window loop resumes from the shared last-frame timestamp without resetting elapsed scenario time.
 
+## Website publication contract
+
+- The canonical source remote is `https://github.com/GeorgeFejer91/minimal-social-threat-webxr.git`; the canonical public runtime is `https://georgefejer91.github.io/minimal-social-threat-webxr/`.
+- Any change to website source, runtime behavior, public assets, dependencies, build output, WebXR, transport, or deployment configuration is not complete until its validated source commit is pushed and that exact source revision is represented by a published `gh-pages` deployment.
+- The repository currently uses GitHub Pages legacy branch publishing from the root of `gh-pages`. Consequently, pushing `main` does not by itself update the live application. Build `dist/client` with the repository base path, publish that output to `gh-pages`, and preserve a deploy commit message that names the source revision.
+- Acceptance requires readback from the public HTTPS site after Pages reports `built`. Verify the landing page plus every directly affected route, such as `?view=trial`, `?view=headset`, or `?view=companion`; local preview evidence is supplementary.
+- Never describe local-only, unpushed, queued, failed, or unverified website work as complete. Report it as **implemented locally; deployment pending** and state the blocker.
+
 ## Audio contract
 
-- Audio is off by default and never starts without a participant click. No persisted or operator-controlled audio preference exists.
-- Every VR/MR entry clears the enabled state and closes any existing Web Audio graph synchronously before `requestSession()`; immersive operation remains silent even when the same Quest Browser tab previously enabled 2D audio.
-- Panning model is Web Audio `HRTF`; distance model is inverse.
-- The optional audio listener is fixed at the scene origin in 2D. It is not updated from or attached to the immersive camera.
+- Audio is off by default and never starts without a local participant/headset click. No persisted or operator-controlled audio preference exists. The control is disabled during XR, so audio must be deliberately enabled before entry.
+- An explicit opt-in survives immersive entry. `StudyApp.tsx` continues feeding authoritative scene cues while `XrScene.tsx` updates the listener from the XR camera. Without that opt-in, 2D and immersive presentation remain silent.
+- Panning uses the browser's non-individualized Web Audio `HRTF`. Ordinary agent cues retain inverse panner distance attenuation. Threat panners use zero rolloff so distance is not applied twice.
+- `lib/threat-audio-protocol.ts` is the single parameter authority. The approach localizer adapts PPS Kit revision `1c7ea7aa505efbde61b24c1b0f5c943bd842edb2`: deterministic broadband noise, 30 ms bursts, 10 ms raised-cosine edges, 95 ms onset period, and 300 ms onset. It runs from approach start to endpoint and is a localization adaptation, not a validated threat inducer.
+- The final three seconds add a methods-derived Taffou et al. roughness reconstruction: 500 Hz fundamental plus seven harmonics through 4 kHz, reported relative amplitudes of 1, 0.5, and approximately 0.25, full-depth 70 Hz amplitude modulation, and a −0.8 dB rough-level correction. The publication's approximate upper-harmonic values prevent an exact waveform claim.
+- One manual level law owns threat proximity: linear in dB from −18 dB at 16 m to 0 dB at 1.8 m. A bounded delay node tracks `distance / 343 m/s`. These are relative digital parameters, not measured SPL or a reproduction of PPS Kit's SOFA/3DTI renderer.
+- Pause disconnects active generated cues and makes them eligible for reconstruction from authoritative elapsed time on resume.
 - Dialogue semantics are fixed captions. Baseline friendly cues use gentle envelopes, moderate roots, and project-authored tones at 1:1, 5:4, and 3:2 ratios. This operationalization is motivated by acoustic-affect and consonance research but is not a universal or independently validated friendliness code.
-- Threat synthesis uses 47 and 83 Hz amplitude modulation within the roughness regime described by Arnal et al., low inharmonic carriers, deterministic band-limited noise, and accelerating low pulses. The spider adds brief synthetic clicks. Distance attenuation is owned by the HRTF panner, so source salience increases with approach.
-- A master gain and compressor limit digital output, but the application cannot guarantee sound-pressure level; physical calibration is mandatory.
+- The project ships no scream recording. IADS-E files are requester-bound/non-redistributable, and the stronger Morriss/IADS-2 derivative lacks a sufficiently clear asset-level redistribution chain for this repository.
+- A master gain and compressor limit digital output, but the application cannot guarantee sound-pressure level; physical headphone/headset calibration remains mandatory.
 
 ## Facial-expression contract
 
 - `lib/facial-expression.ts` owns normalized facial geometry only. `lib/scenario.ts` remains the owner of facial state through each agent's categorical `expression` and continuous `fear` value.
 - The base library contains neutral, happiness, sadness, fear, anger, surprise, and disgust. Every eyebrow, eye, pupil, nose, and mouth path has identical cubic-Bézier topology across states, so any state pair can interpolate without path re-segmentation; normalized weighted blends support exploratory compound geometry.
 - Scenario rendering uses continuous stages: low-intensity neutral→happiness for `calm`, that calm geometry→surprise for `alert`, surprise→fear for `afraid`, and the anger end state for `angry`. Transition progress is derived deterministically from authoritative fear rather than renderer-local clocks.
-- Canvas 2D draws the interpolated SVG paths directly. Three.js paints the same paths into a transparent equirectangular `CanvasTexture` on a radius-0.344 spherical shell over the radius-0.34 head. The mapping uses longitude/latitude, with local +Z centered at Three.js `SphereGeometry` coordinate `u = 0.25`; no face plane remains.
+- Canvas 2D draws the interpolated SVG paths through `Path2D` at the display backing resolution. Three.js samples each cubic curve at a stable 32 subdivisions per segment, constructs filled and stroked triangle layers, maps every vertex through the longitude/latitude projection onto radius 0.344 over the radius-0.34 head, and updates the existing position buffers during morphs. No face plane, facial bitmap, per-avatar texture, or renderer-local emotion state remains.
+- `scripts/generate-face-assets.mjs` deterministically serializes all seven endpoints into standalone planar and equirectangular SVG files under `public/assets/faces/`; `manifest.json` identifies the canonical source and validation boundary. The SVG source is resolution-independent, while final visible quality is still bounded by the display, antialiasing, and GPU mesh rasterization.
 - FACS action-unit patterns and recognition studies motivate feature directions and region emphasis. They do not validate the exact stylization, intensity, transition path, cultural interpretation, crowd viewing distance, or 2D/XR implementation.
 
 ## Extension seams

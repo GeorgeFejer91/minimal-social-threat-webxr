@@ -2,7 +2,7 @@
 
 ## Decision
 
-Build one deterministic social-threat scenario that works first as a touch-friendly 2D browser trial and optionally as virtual or mixed reality. Twelve minimal game-like or optional human-form social agents form six conversational dyads in a large crowd entirely in front of the observer. The dyads exchange friendly-tone prototypes. One of three threats—shrouded shadow, angry agent, or Huntsman spider—approaches; the shadow and spider begin participant-invisible and fade in with proximity. Agents detect it at different times, alarm spreads through the group, and they adopt varied avoidance behavior while the threat never crosses the configured 1.8 m boundary.
+Build one deterministic social-threat scenario that works first as a touch-friendly 2D browser trial and optionally as virtual or mixed reality. Twelve minimal game-like or optional human-form social agents form six conversational dyads in a large crowd entirely in front of the observer. The dyads exchange friendly-tone prototypes. One of three threats—shrouded shadow, angry agent, or articulated spider—approaches; the shadow and spider begin participant-invisible and fade in with proximity. Agents detect it at different times, alarm spreads through the group, and they adopt varied avoidance behavior while the threat never crosses the configured 1.8 m boundary.
 
 The same authoritative scene snapshot drives the 2D participant view, optional Three.js/WebXR view, HRTF spatial audio, CSV logging, and the PC operator's realtime top-down or 3D state reconstruction. The PC can request bounded scenario and XR actions; the participant/headset host remains authoritative and returns explicit runtime readback and per-request receipts.
 
@@ -20,15 +20,16 @@ The same authoritative scene snapshot drives the 2D participant view, optional T
 
 ## Current stimulus
 
-- Twelve procedural agents or optional Cesium Man GLB instances, organized as six dyads in front of the observer. Procedural heads use cubic-Bézier facial features that morph continuously and wrap onto the head sphere in 3D rather than using a flat face plate.
+- Twelve procedural agents or optional Cesium Man GLB instances, organized as six dyads in front of the observer. Procedural heads use cubic-Bézier SVG facial features that morph continuously and are tessellated into sphere-conforming vector meshes in 3D rather than using a flat face plate or facial bitmap.
 - Eight-second baseline with independent movement and alternating talk/listen behavior.
 - Individual threat-detection delays and dyadic alarm transmission.
-- A generic shrouded shadow that fades in with proximity, an immediately visible angry-agent comparison, or a fading CC0 Huntsman Spider condition.
+- A generic shrouded shadow that fades in with proximity, an immediately visible angry-agent comparison, or a fading project-authored spider with viewer-facing cephalothorax, eyes, mandibles, and an alternating eight-leg gait.
+- A deterministic dusk forest edge with varied broadleaf trees, conifers, branches, roots, shrubs, rocks, haze, and a visible central approach path. Full tree-canopy bounds stay outside the threat corridor in both 2D and WebXR.
 - Gentle 18-second or standard 12-second approach after the detection interval.
 - Four-second safety-distance hold and deterministic completion.
-- Captioned friendly dyadic cues, with optional 2D-only synthesis behind an explicit opt-in. Audio is off by default, and immersive entry closes any earlier browser-audio graph rather than carrying it into VR/MR.
-- When deliberately enabled in 2D, threat sound uses inharmonic carriers, 47/83 Hz rough amplitude modulation, deterministic noise and accelerating low pulses rendered from the threat position with Web Audio HRTF panning; spider-only clicks add a distinct condition cue.
-- Data-only VDO.Ninja v2 operator synchronization, bounded command receipts and XR readback, and bounded CSV export; scenario snapshots remain schema v4.
+- Captioned friendly dyadic cues and threat cues behind one local opt-in. Audio is off by default; enabling it before immersive entry deliberately carries the same authoritative cue schedule into VR/MR, where the listener follows the XR camera.
+- The threat cue is split into auditable layers: a PPS Kit-derived broadband burst-train localizer across approach and a methods-derived three-second 70 Hz rough harmonic cue at final approach. Web Audio HRTF owns direction from a visual-kind-specific 3D anchor (1.55 m for upright threats; 0.42 m for the spider), a manual −18→0 dB law owns relative distance level, and `distance / 343 m/s` owns propagation delay. No recorded scream is bundled.
+- Data-only VDO.Ninja v2 operator synchronization, bounded command receipts and XR readback, and bounded CSV export; scenario snapshots use schema v5 and carry the audio-protocol identity.
 
 ## Non-scope
 
@@ -46,10 +47,11 @@ The same authoritative scene snapshot drives the 2D participant view, optional T
 - A participant can configure, directly start, pause, reset, and complete the 2D trial on a smartphone without a checkbox gate.
 - Supported headsets can directly start VR and, when supported, passthrough MR over HTTPS; an active 2D run can continue with its elapsed time preserved.
 - Agents visibly face partners, alternate roles, move asynchronously, react at different times, and avoid the threat.
-- The default trial is silent. Deliberately enabled 2D headphone audio is HRTF-positioned, while immersive VR/MR remains silent without an additional preference.
+- The default trial is silent. Deliberately enabled headphone audio is HRTF-positioned in 2D and WebXR; immersive entry does not silently enable it, and the control cannot be changed after XR starts.
 - The threat never crosses 1.8 m in the authoritative state.
 - A separately opened PC operator browser auto-discovers the data-only VDO.Ninja scene, can receive the full versioned scene and host runtime state, and can issue only allowlisted commands with exact bounded receipts.
 - The dedicated headset role advertises itself before the scenario starts; PC start/pause/resume/reset and configuration changes are reflected on both displays, while local headset/controller actions return through the same authoritative readback.
 - A PC VR/MR request produces a local headset confirmation rather than silently entering immersive mode; confirmation starts the requested session and rejection/failure is reported against the matching request.
 - Once immersive, the authoritative scenario clock advances from XR animation frames and remains continuous across 2D/XR transitions.
+- Every website-affecting change is validated, committed, pushed to the canonical GitHub repository, published as the exact live GitHub Pages revision, and checked on each affected public route before it is reported complete.
 - Automated checks pass, followed by documented physical-device, acoustic, and participant-pilot validation before data collection.

@@ -16,8 +16,16 @@
 - A dedicated headset host role, version-2 data-only operator transport, full versioned scenario controls, bounded per-request receipts, XR lifecycle/readback, and top-down/3D authoritative state reconstruction.
 - Remote VR/MR requests stage a local headset confirmation to preserve WebXR's trusted-user-activation boundary; they cannot silently enter immersive mode.
 - Three threat renderings and two avatar styles are explicit versioned configuration fields.
-- Shared cubic-Bézier face geometry has seven compatible end states, deterministic pairwise/weighted morphing, and a tested front-facing sphere projection; this establishes software behavior, not recognition validity.
-- Silent-by-default operation: optional audio requires an explicit 2D click, while every immersive entry closes any prior Web Audio graph and keeps VR/MR silent. The dormant synthesis retains HRTF panning and capped digital gain; no microphone/camera is requested.
+- The spider rendering faces the observer and uses a deterministic alternating eight-leg gait in both 2D and 3D; this is software behavior, not biological or threat validation.
+- The virtual forest has a code-tested tree-and-canopy-free central threat corridor shared by 2D and 3D renderers; visual composition and frame-time still require physical-device acceptance.
+- Shared cubic-Bézier face geometry has seven compatible end states, deterministic pairwise/weighted morphing, committed planar/spherical SVG assets, and a tested texture-free sphere-vector projection with stable mesh topology; this establishes software behavior, not recognition validity.
+- Silent-by-default operation: optional audio requires an explicit local click before 2D or immersive playback and cannot be enabled after XR starts. When armed before entry, the same schema-v5 cue schedule remains active in WebXR and the listener follows the XR camera; no microphone/camera is requested.
+- The generated threat layers have deterministic, unit-tested parameters and separate IDs: PPS Kit-derived broadband burst localization across approach, followed by a three-second 70 Hz rough harmonic reconstruction at final approach. HRTF direction consumes authoritative `x/y/z` source coordinates, with upright threats at 1.55 m and the spider at 0.42 m; one −18→0 dB relative level law and propagation delay consume authoritative threat distance. This establishes software traceability only.
+- A 2026-08-29 local-browser control check confirmed the silent default, deliberate enable/disable state, participant-facing method/caveat copy, and clean graph teardown without console warnings. The scenario was not played during that check, so it is not perceptual, acoustic, or device validation.
+
+## Website delivery gate
+
+For any website-affecting change, local validation is necessary but not sufficient. Completion requires a pushed source commit, a successful GitHub Pages publication tied to that exact source revision, and an HTTPS readback of every affected public route. The current Pages configuration publishes the generated `gh-pages` branch, so a `main` push without a corresponding deployment does not pass this gate. Record failures or unavailable credentials as **implemented locally; deployment pending**.
 
 ## Required before study use
 
@@ -26,11 +34,11 @@
 3. Calibrate output on every supported headphone/headset combination with an acoustic measurement procedure. Record device volume, equivalent level, peak level, duration, and calibration equipment.
 4. Pilot the shadow, angry-agent, and spider conditions for threat recognition, intensity, valence, arousal, agency, ambiguity, disgust, phobia burden, and demand characteristics. Screen/exclude spider-phobic participants unless the approved protocol intentionally includes them.
 5. Pilot social cues for gaze recognition, speaking/listening role, group naturalness, synchrony, and perceived contagion.
-6. Manipulation-check the friendly tones for valence, arousal, tension, friendliness, and cultural familiarity separately from the full scene.
+6. Manipulation-check the friendly tones for valence, arousal, tension, friendliness, and cultural familiarity separately from the full scene. Test the PPS burst layer, 70 Hz roughness layer, and their sequence separately before treating the combined audio as causal.
 7. Validate 2D phone and immersive XR presentations separately.
 8. Test localization, front/back confusions, distance perception, audio/visual co-location, and the effect of non-individual HRTFs.
 9. Measure presence, discomfort, simulator sickness, startle burden, hearing sensitivity, and participant stop behavior.
-10. Verify direct WebXR entry/start, non-frozen XR-frame clock progression, 2D-to-XR clock continuity, passthrough, right-controller A-button restart/resume, trigger pause, dedicated-headset auto-host, PC start/pause/resume/reset/configuration, locally confirmed remote VR/MR request, remote XR exit, exact receipt/readback reconciliation, network loss/stale recovery, logging, model loading/fallbacks, shadow/spider fade, and the invisible 1.8 m model limit on each physical device/browser version.
+10. Verify direct WebXR entry/start, non-frozen XR-frame clock progression, 2D-to-XR clock continuity, passthrough, right-controller A-button restart/resume, trigger pause, dedicated-headset auto-host, PC start/pause/resume/reset/configuration, locally confirmed remote VR/MR request, remote XR exit, exact receipt/readback reconciliation, network loss/stale recovery, logging, model loading/fallbacks, shadow/spider fade, forest corridor clearance/occlusion, forest frame-time, and the invisible 1.8 m model limit on each physical device/browser version.
 11. Freeze stimulus version, code revision, cue parameters, recordings, device configuration, random seed policy, preregistration, and analysis plan before collection.
 12. Validate the exact project-authored facial end states and intermediate transitions with the intended population. Report forced-choice and open-label recognition, confusion matrices (especially fear/surprise and anger/disgust), perceived intensity/valence/arousal, viewing distance, avatar style, 2D versus XR presentation, and cultural/language context.
 
@@ -42,13 +50,9 @@ The patched source commit `3825279` was then tested from `https://georgefejer91.
 
 This evidence establishes implementation behavior only for the recorded device/browser/source combination. Passthrough MR, controller mappings, network-loss recovery, prolonged soak, physical-boundary safety, construct validity, emotional effect, comfort, acoustic calibration, and participant readiness remain unverified.
 
-## Silent-immersive evidence recorded 2026-08-29
-
-Source `292c95c` was loaded from the public HTTPS headset route on the same Quest 3 / Quest Browser 149 device class. The page reported audio off, a trusted browser touch entered immersive VR, and the runtime status reported the trial running silently. Fresh Android audio-service readback during the active immersive session listed no started audio player for Quest Browser or Meta VR Shell. Navigating out of XR ended the session; Meta VR Shell then restarted its own `USAGE_GAME` AAudio stream. This separates the audible Home/environment background stream from application audio and establishes that the observed patched immersive run created no active playback stream. It does not prove acoustic silence on other Horizon/browser versions or replace physical volume/acoustic checks.
-
 ## Claims that must not be made yet
 
-- “Scientifically validated threat stimulus.”
+- “Scientifically validated threat stimulus.” A methods-derived reconstruction and a PPS Kit-derived localization layer do not transfer validation to this combined scenario.
 - “Clinically safe volume.”
 - “Binaural localization equivalent to individualized HRTF rendering.”
 - “Culturally universal fear response.”

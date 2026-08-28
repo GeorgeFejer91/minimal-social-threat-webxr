@@ -76,8 +76,13 @@ test("dialogue and threat cues are deterministic scene data", () => {
   assert.equal(chat.audioCues[0]?.sourceId, "agent-e");
   assert.equal(chat.agents.find((agent) => agent.id === "agent-e")?.speaking, true);
   const threat = evaluateScenario(config, 12_300, "test", { running: true });
-  assert.equal(threat.audioCues[0]?.kind, "roughness");
+  assert.equal(threat.audioCues[0]?.kind, "pps-looming-bursts");
   assert.equal(threat.audioCues[0]?.sourceId, "threat");
+  assert.equal(threat.audioCues[0]?.y, 1.55);
+  assert.equal(threat.audioProtocol.id, "pps-separated-spatial-threat-cues-v1");
+  const finalApproach = evaluateScenario(config, 21_000, "test", { running: true });
+  assert.deepEqual(finalApproach.audioCues.map((cue) => cue.kind), ["pps-looming-bursts", "roughness"]);
+  assert.equal(finalApproach.audioCues[1]?.durationMs, 3_000);
 });
 
 test("the shrouded threat begins hidden and fades in monotonically with approach", () => {
@@ -98,8 +103,20 @@ test("the shrouded threat begins hidden and fades in monotonically with approach
 
 test("spider threat fades in and carries the spider menace cue", () => {
   const early = evaluateScenario({ ...config, threatKind: "spider" }, 1_000, "test", { running: true });
-  const approach = evaluateScenario({ ...config, threatKind: "spider" }, 18_000, "test", { running: true });
+  const approach = evaluateScenario({ ...config, threatKind: "spider" }, 21_000, "test", { running: true });
   assert.equal(early.threat.visibility, 0);
   assert.ok(approach.threat.visibility > 0);
-  assert.equal(approach.audioCues.find((cue) => cue.sourceId === "threat")?.kind, "spider-menace");
+  assert.equal(approach.audioCues.find((cue) => cue.kind === "spider-menace")?.sourceId, "threat");
+  assert.equal(approach.audioCues.find((cue) => cue.sourceId === "threat")?.y, 0.42);
+});
+
+test("the approaching threat stays oriented toward the viewer", () => {
+  for (const elapsed of [11_000, 15_000, 22_000]) {
+    const state = evaluateScenario({ ...config, threatKind: "spider" }, elapsed, "test", { running: true });
+    const forwardX = Math.sin(state.threat.yaw);
+    const forwardZ = Math.cos(state.threat.yaw);
+    const towardViewerX = -state.threat.x;
+    const towardViewerZ = -state.threat.z;
+    assert.ok(forwardX * towardViewerX + forwardZ * towardViewerZ > 0);
+  }
 });

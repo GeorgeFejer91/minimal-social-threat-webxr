@@ -1,11 +1,48 @@
 # Project-memory changelog
 
+## 2026-08-29 — mandatory live website delivery
+
+- Added a durable completion gate for all website-affecting work: validate the change, commit and push its source to the canonical GitHub repository, publish that exact revision to GitHub Pages, and verify every affected public route.
+- Recorded the current deployment authority accurately: the public site uses legacy branch publishing from the generated `gh-pages` branch, so a successful local build or `main` push alone does not make a change live.
+- Required blocked or unverified delivery to be reported as **implemented locally; deployment pending** rather than complete. Pure research/project-memory-only edits remain outside the Pages rebuild requirement unless shipped alongside website changes.
+
+## 2026-08-29 — corridor-cleared procedural forest
+
+- Replaced the evenly spaced low-detail tree ring and flat 2D triangle silhouettes with a deterministic 28-tree forest edge containing varied broadleaf trees, conifers, tapered trunks, branches, multi-cluster crowns, root flares, shrubs, rocks, atmospheric depth, and a visible approach path.
+- Added `lib/forest-layout.ts` as the shared 2D/Three.js position/species authority. Every complete tree canopy is code-tested to remain outside a ±2.4 m half-width central lane, preventing the threat—including the animated spider's leg span—from intersecting or visually walking through a tree.
+- Expanded the virtual ground plane and added virtual-only forest fog; passthrough continues to hide all authored environment geometry. Hundreds of source tree parts are merged into a small set of material batches before rendering to contain Quest draw-call cost.
+- Visually verified the 2D ready and final spider positions in the local browser. Physical Quest/WebGL composition and performance remain an explicit acceptance item.
+
+## 2026-08-29 — PPS-derived spatial threat-audio protocol and schema v5
+
+- Pinned PPS Kit reference revision `1c7ea7aa505efbde61b24c1b0f5c943bd842edb2` and borrowed its source/renderer separation plus DynaSpace-derived 30 ms burst, 10 ms edge, 95 ms onset-period, and 300 ms onset parameters for a generated approach-localizer.
+- Replaced the exploratory 47/83 Hz inharmonic menace composite with a separately scheduled three-second methods-derived Taffou et al. reconstruction: 500 Hz fundamental plus seven harmonics through 4 kHz, full-depth 70 Hz modulation, and −0.8 dB level correction. The publication's approximate upper-harmonic amplitudes prevent an exact-waveform claim.
+- Made Web Audio HRTF direction consume the live threat position, including a 1.55 m upright-threat or 0.42 m spider visual anchor, while one explicit −18→0 dB law owns relative approach level and a bounded delay follows `distance / 343 m/s`; threat panner distance rolloff is disabled to avoid double attenuation.
+- Kept audio off by default. A deliberate local opt-in can now remain active in WebXR so `XrScene.tsx` updates the listener from the XR camera; audio cannot be enabled after immersive entry and cannot be enabled by the PC operator.
+- Bumped scene snapshots to schema v5 and added explicit cue height plus a strict compact audio-protocol identity to scene transport/logs. Added tests for source parameters, burst envelope, source height, monotonic distance level, propagation delay, scheduling, transport rejection, and build wiring.
+- Did not bundle the strongest Morriss/IADS-2-derived scream or the IADS-E comparison scream. Their asset-level/requester redistribution terms are insufficient for this public project. No external audio file or new third-party runtime dependency was added.
+- This change improves parameter traceability and spatial implementation only. The generated layers, their sequence, browser HRTF rendering, loudness, and combined audiovisual scenario still require acoustic calibration, physical Quest validation, target-population piloting, and ethics approval.
+
+## 2026-08-29 — resolution-independent SVG face assets and direct sphere vectors
+
+- Promoted the cubic-Bézier facial geometry into deterministic standalone SVG assets: seven planar endpoints, seven equirectangular spherical mappings, and a machine-readable manifest under `public/assets/faces/`.
+- Added `npm run assets:faces` so committed SVGs can be regenerated from the single canonical geometry source without manual path duplication.
+- Removed the per-avatar 256×128 facial `CanvasTexture` and transparent spherical texture shell from Three.js. Live expressions now tessellate the same SVG curves into filled/stroked vector meshes whose vertices lie directly on the orb surface; morph updates reuse stable buffer topology.
+- Added checks for SVG metadata/scalability, exact generated-asset parity, curve sampling, finite sphere vertices, stable all-emotion mesh topology, outward bounded indices, and constant stroke radius.
+- The SVG assets are resolution-independent, but no screen or GPU output is literally infinite-resolution; final appearance still depends on display sampling, antialiasing, viewing distance, and physical-device validation. Scientific-validation caveats remain unchanged.
+
 ## 2026-08-29 — silent immersive default
 
 - Confirmed from live Quest audio-service readback that the currently audible continuous background stream belonged to Meta VR Shell/Home rather than Quest Browser. No headset audio setting was changed during that diagnostic.
 - Kept the application audio state off by default and made every immersive VR/MR entry explicitly dispose any prior 2D Web Audio graph before requesting the XR session, without adding a new preference.
 - Restricted the existing opt-in audio action and engine attachment to non-immersive 2D use, and added a build-output regression gate for restored-tab audio carryover.
-- Accepted the public source `292c95c` on Quest Browser: the trusted VR entry reported a silent run and Android listed no started audio player during immersion; Meta VR Shell resumed its own game-audio stream only after XR exit.
+
+## 2026-08-28 — viewer-facing articulated spider locomotion
+
+- Replaced the runtime use of the static, unrigged Huntsman GLB with a project-authored articulated spider in both Canvas 2D and Three.js/WebXR. The retained CC0 file contained a separate `Cube_2` prop and could not animate individual limbs; it now remains only as a provenance/reference artifact and is no longer requested by the application.
+- Oriented the cephalothorax, six visible eye glints, mandibles, and forward leg pairs toward the observer. The authoritative threat yaw now targets the viewer and the Three.js threat root consumes it.
+- Added eight three-segment legs driven by a deterministic alternating-tetrapod pose derived from authoritative elapsed time, with approach locomotion, subdued hold motion, body bob/yaw, and mandible movement. Removed the former whole-body twitch/pulse substitute for spider walking.
+- Added focused gait/support-group/orientation tests. This establishes deterministic software behavior only; neither the anatomy, gait, fear effect, nor combined spider stimulus is validated.
 
 ## 2026-08-28 — Quest XR clock repair and bidirectional PC operator bridge
 

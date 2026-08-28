@@ -41,8 +41,35 @@ Arnal, L. H., Flinker, A., Kleinschmidt, A., Giraud, A.-L., & Poeppel, D. (2015)
 Taffou, M., Suied, C., & Viaud-Delmon, I. (2021). Auditory roughness elicits defense reactions. *Scientific Reports, 11*, 956. https://doi.org/10.1038/s41598-020-79767-0
 
 - Supported lesson: a binaurally rendered looming rough sound, created with 70 Hz amplitude modulation, affected audio-tactile peripersonal-space behavior at farther distances than a matched non-rough sound.
-- Project use: supports combining roughness with a looming HRTF source. The current runtime uses 47 and 83 Hz modulation rather than reproducing the paper’s 70 Hz stimulus.
-- Rejected overreach: the project does not reproduce the paper’s harmonic stimulus, loudness matching, LISTEN HRTFs, near-field correction, room simulation, task, or validation.
+- Project use: the final three-second runtime layer now reconstructs the reported 500 Hz fundamental plus seven harmonics through 4 kHz, full-depth 70 Hz modulation, and −0.8 dB rough/non-rough level difference. It follows the authoritative threat position.
+- Rejected overreach: the paper reports the upper-partial amplitudes only as “around 0.25,” and the project uses a different trajectory, browser HRTF, no LISTEN/near-field/room simulation, a manual relative-level law, and no tactile task. This is a methods-derived reconstruction, not the original stimulus or transferred validation.
+
+PPS Toolkit. *Peripersonal Space Toolkit*, revision `1c7ea7aa505efbde61b24c1b0f5c943bd842edb2`. https://github.com/GeorgeFejer91/pps-kit
+
+- Reference lesson borrowed: keep the dry source separate from the spatial renderer and export exact source profile, trajectory, level policy, HRTF resource/renderer, and QC identity. The DynaSpace-derived default uses 30 ms broadband Gaussian-noise bursts, 10 ms rise/fall, approximately 95 ms onset spacing, and an onset at 300 ms.
+- Project use: `lib/threat-audio-protocol.ts` adapts those dry-source parameters into a deterministic Web Audio approach-localizer and logs the pinned reference revision. HRTF, level, and delay remain renderer-owned.
+- Overreach rejected: the browser implementation is not PPS Toolkit's Python SOFA/FABIAN preview, native 3DTI renderer, measured loudness profile, or validated audio-tactile PPS protocol. The burst layer is not independently validated as a threat inducer.
+
+Seow, T. X. F., & Hauser, T. U. (2022). Reliability of web-based affective auditory stimulus presentation. *Behavior Research Methods, 54*, 378–392. https://doi.org/10.3758/s13428-021-01643-0
+
+- Supported lesson: in an 84-participant, 15-sound comparison, the modified Morriss female scream was the most unpleasant and arousing item and produced reliable repeated ratings under headphone-screened web delivery.
+- Project consequence: recorded screams remain strong candidates for a separately licensed aversive-outcome condition, but they should not be conflated with a learned cue or with the current generated spatial layers.
+- Redistribution boundary: the accompanying repository labels the work CC BY-NC 4.0, while the article says sounds were included with author permission or CC BY 3.0. The specific winning file derives from IADS-2 #277, so the project does not bundle it without clearer asset-level permission.
+
+Morriss, J., Macdonald, B., & van Reekum, C. M. (2016). What is going on around here? Intolerance of uncertainty predicts threat generalization. *PLOS ONE, 11*(5), e0154494. https://doi.org/10.1371/journal.pone.0154494
+
+- Supported lesson: a one-second modified IADS-2 #277 scream was used as an aversive unconditioned stimulus in a conditioning/generalization task with subjective and skin-conductance measures; participants rated it strongly aversive and arousing.
+- Rejected overreach: the older approximately 90 dB laboratory presentation is not a safe target for uncontrolled Quest/headphone playback, and conditioning evidence does not make the recording a neutral threat-predictive cue.
+
+Yang, W., et al. (2018). Affective auditory stimulus database: An expanded version of the International Affective Digitized Sounds (IADS-E). *Behavior Research Methods, 50*, 1415–1429. https://doi.org/10.3758/s13428-017-0947-1 and official access terms: https://sites.google.com/view/iads-e/
+
+- Supported lesson: IADS-E provides normed affective recordings for approved non-profit academic research.
+- Redistribution boundary: the official site says download access is requester-specific and the link/files must not be shared or distributed beyond that requester. Therefore the evaluated #0276 scream is not bundled even though it appeared in the Seow comparison repository.
+
+Taschereau-Dumouchel, V., et al. (2020). The ‘Threat of Scream’ paradigm: a tool for studying sustained physiological and subjective anxiety. *Scientific Reports, 10*, 12496. https://doi.org/10.1038/s41598-020-68889-0
+
+- Supported lesson: unpredictable screams during threat blocks increased skin-conductance level and subjective anxiety across two replications, indicating that uncertainty and anticipation can be more important for sustained anxiety than simply maximizing acoustic intensity.
+- Project consequence: any later sustained-anxiety condition should manipulate and preregister predictability separately. The study's exact scream set is not openly redistributed here.
 
 Zhao, S., Yum, N. W., Benjamin, L., Benhamou, E., Yoneya, M., Furukawa, S., Dick, F., Slaney, M., & Chait, M. (2019). Rapid ocular responses are modulated by bottom-up-driven auditory salience. *Journal of Neuroscience, 39*(39), 7703–7714. https://doi.org/10.1523/JNEUROSCI.0776-19.2019
 
@@ -52,14 +79,14 @@ Zhao, S., Yum, N. W., Benjamin, L., Benhamou, E., Yoneya, M., Furukawa, S., Dick
 Blumstein, D. T., Davitian, R., & Kaye, P. D. (2010). Do film soundtracks contain nonlinear analogues to influence emotion? *Biology Letters, 6*(6), 751–754. https://doi.org/10.1098/rsbl.2010.0333
 
 - Supported lesson: highly ranked horror soundtracks contained more noisy screams/non-musical nonlinear analogues than expected, consistent with filmmakers exploiting harsh/unpredictable acoustic structure.
-- Project use: motivates inharmonic/noisy structure as one exploratory component of the menace sound.
+- Historical project use: motivated an earlier exploratory inharmonic menace sound that schema v5 replaced with the parameter-traceable PPS/Taffou layers.
 - Rejected overreach: the observational film analysis does not prescribe this project’s carriers, pulse pattern, loudness, or emotional effect.
 
 Bidelman, G. M., & Myers, M. H. (2020). Frontal cortex selectively overrides auditory processing to bias perception for looming sonic motion. *Brain Research, 1726*, 146507. https://doi.org/10.1016/j.brainres.2019.146507
 
 - Supported lesson: listeners responded faster to rising-intensity looming than receding complex tones, with early prefrontal differentiation in EEG.
 - Project use: supports increasing acoustic salience with the moving threat rather than using a static non-spatial sound.
-- Rejected overreach: the runtime’s distance model, source identity, pulse rate, and roughness composite were not tested in this paper.
+- Rejected overreach: the runtime’s distance model, source identity, PPS burst rate, and Taffou-derived roughness reconstruction were not tested in this paper.
 
 W3C. Web Audio API. https://www.w3.org/TR/webaudio/
 
@@ -76,7 +103,7 @@ Khronos Group. Cesium Man, glTF Sample Assets, revision `fcc7fba598e7bd07ae9533b
 ffish.asia / floraZia.com. CC0 Huntsman Spider, *Heteropoda venatoria*. Source package revision `32aaefa3e540658a75258771c76c2d398f4a473b`: https://github.com/code4fukui/vr-spiders/tree/32aaefa3e540658a75258771c76c2d398f4a473b
 
 - Bundled asset: `public/assets/models/huntsman-spider.glb`, CC0 1.0.
-- Project use: third threat rendering, with a procedural fallback while the mesh loads.
+- Project use: retained provenance/reference for the earlier static spider implementation. The file is no longer loaded or rendered because it is unrigged, includes a separate cube prop, and cannot supply articulated locomotion.
 - Validation boundary: a public/CC0 model is not a validated phobia or threat stimulus.
 
 Prokop, P., Randler, C., Beňo, M., Monyová, D., Jurišová, M., & Čapíková, S. (2021). What makes spiders frightening and disgusting to people? *Frontiers in Ecology and Evolution, 9*, 694569. https://doi.org/10.3389/fevo.2021.694569

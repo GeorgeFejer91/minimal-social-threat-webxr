@@ -36,5 +36,6 @@ The scene-link lifecycle independently adapts the remote-Flubber transport patte
 
 - Source package: https://github.com/code4fukui/vr-spiders/tree/32aaefa3e540658a75258771c76c2d398f4a473b
 - Original model: “CC0 アシダカグモ 🕷️ Huntsman Spider, H. venatoria” by ffish.asia / floraZia.com.
+- Local status: retained for provenance/reference and not loaded by the runtime; the active spider is project-authored and articulated.
 - License: CC0 1.0 Universal.
 - Packaged file and hash: see `public/assets/models/LICENSES.md`.
