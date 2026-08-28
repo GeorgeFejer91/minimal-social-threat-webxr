@@ -204,8 +204,12 @@ export function evaluateScenario(
     const detectedThreat = detectedById.get(agent.id) ?? false;
     const partnerDetected = detectedById.get(agent.partnerId) ?? false;
     const detectionAt = BASELINE_END_SECONDS + agent.detectionDelay;
-    const alarmed = detectedThreat || (partnerDetected && seconds >= detectionAt - 0.58);
-    const fear = detectedThreat ? smoothstep((seconds - detectionAt) / 1.35) : alarmed ? 0.28 : 0;
+    const partnerAlarmed = partnerDetected && seconds >= detectionAt - 0.58;
+    const alarmed = detectedThreat || partnerAlarmed;
+    const alarmAt = partnerAlarmed ? detectionAt - 0.58 : detectionAt;
+    const alarmFear = alarmed ? smoothstep((seconds - alarmAt) / 0.55) * 0.34 : 0;
+    const detectedFear = detectedThreat ? smoothstep((seconds - detectionAt) / 1.35) : 0;
+    const fear = Math.max(alarmFear, detectedFear);
 
     const fromThreatX = baseline.x - threatX;
     const fromThreatZ = baseline.z - threatZ;

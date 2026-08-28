@@ -15,7 +15,15 @@ import {
   type SceneSnapshot,
   type ThreatKind,
 } from "../lib/scenario";
-import { SceneBroadcaster, SceneReceiver, type SceneCommand } from "../lib/scene-sync";
+import {
+  SceneBroadcaster,
+  SceneReceiver,
+  type CommandReceipt,
+  type HostRuntimeReadback,
+  type ReceiptStatus,
+  type SceneCommand,
+  type XrRuntimePhase,
+} from "../lib/scene-sync";
 import { SpatialAudioEngine } from "../lib/spatial-audio";
 
 type AppView = "landing" | "trial" | "companion";
@@ -62,19 +70,49 @@ function quoteCsv(value: unknown) {
 }
 
 interface LogRow {
-  schema_version: 1;
+  schema_version: 2;
   session_id: string;
   client_time_iso: string;
   event: string;
-  source: "trial" | "companion" | "local";
+  source: "trial" | "companion" | "local" | "xr-controller" | "xr-system";
   elapsed_ms: number;
   phase: string;
   running: boolean;
   paused: boolean;
   threat_kind: string;
   threat_distance_m: number;
+  request_id: string;
+  command_action: string;
+  receipt_status: string;
+  receipt_reason: string;
+  xr_phase: XrRuntimePhase;
+  xr_mode: SceneMode | "";
   scene_json: string;
 }
+
+interface PendingXrRequest {
+  requestId: string;
+  mode: SceneMode;
+}
+
+interface ControlLogDetail {
+  requestId?: string;
+  action?: SceneCommand["action"];
+  status?: ReceiptStatus;
+  reason?: string;
+}
+
+interface PendingOperatorCommand {
+  requestId: string;
+  action: SceneCommand["action"];
+  late: boolean;
+}
+
+const ignoreFrame: (time: number) => void = () => undefined;
+const ignoreReady: (ready: boolean) => void = () => undefined;
+const ignoreSessionChange: (active: boolean, mode?: SceneMode) => void = () => undefined;
+const ignoreStatus: (message: string) => void = () => undefined;
+const ignoreRequest = () => undefined;
 
 function Nav({ current, onNavigate }: { current: AppView; onNavigate(view: AppView): void }) {
   return (
@@ -93,6 +131,7 @@ function Nav({ current, onNavigate }: { current: AppView; onNavigate(view: AppVi
 
 export default function StudyApp() {
   const [view, setView] = useState<AppView>("landing");
+  const [headsetHost, setHeadsetHost] = useState(false);
   const [config, setConfig] = useState<ScenarioConfig>(DEFAULT_CONFIG);
   const [sessionId, setSessionId] = useState("session_preview");
   const runtimeRef = useRef({ elapsedMs: 0, running: false, paused: false, lastFrameAt: 0, lastCommandId: undefined as string | undefined });
@@ -107,6 +146,10 @@ export default function StudyApp() {
   const [showXrPreview, setShowXrPreview] = useState(false);
   const [xrStatus, setXrStatus] = useState("Preparing the optional 3D engine…");
   const [xrSupport, setXrSupport] = useState({ vr: false, ar: false, checked: false });
+  const [xrPhase, setXrPhase] = useState<XrRuntimePhase>("inline");
+  const [activeXrMode, setActiveXrMode] = useState<SceneMode | undefined>(undefined);
+  const [pendingXrRequest, setPendingXrRequest] = useState<PendingXrRequest | undefined>(undefined);
+  const [hostRevision, setHostRevision] = useState(0);
   const [audioEnabled, setAudioEnabled] = useState(false);
   const [audioStatus, setAudioStatus] = useState("Audio is off. Headphones are recommended for HRTF spatialization.");
   const [broadcastState, setBroadcastState] = useState<Record<string, unknown>>({ phase: "idle", listenerCount: 0 });
@@ -115,19 +158,59 @@ export default function StudyApp() {
   const [logCount, setLogCount] = useState(0);
   const lastSampleAtRef = useRef(-Infinity);
   const lastPhaseRef = useRef(scene.phase);
+  const headsetHostRef = useRef(false);
+  const pageVisibilityRef = useRef<"visible" | "hidden">("visible");
+  const hostRevisionRef = useRef(0);
+  const xrActiveRef = useRef(false);
+  const xrEngineReadyRef = useRef(false);
+  const xrSupportRef = useRef(xrSupport);
+  const xrPhaseRef = useRef<XrRuntimePhase>("inline");
+  const activeXrModeRef = useRef<SceneMode | undefined>(undefined);
+  const pendingXrRequestRef = useRef<PendingXrRequest | undefined>(undefined);
+  const pendingXrExitRequestRef = useRef<string | undefined>(undefined);
+  const xrFrameCountRef = useRef(0);
+  const lastFrameGapLogAtRef = useRef(-Infinity);
+  const receiptsRef = useRef<CommandReceipt[]>([]);
 
   const receiverRef = useRef<SceneReceiver | undefined>(undefined);
   const [receiverState, setReceiverState] = useState<ReturnType<SceneReceiver["snapshot"]>>({
     phase: "idle", sources: [], selectedStreamId: "", sourceLabel: "", latest: undefined,
     packetAgeMs: undefined, route: "unknown", rttMs: undefined,
   });
-  const [pendingCommand, setPendingCommand] = useState("");
+  const [pendingCommand, setPendingCommand] = useState<PendingOperatorCommand | undefined>(undefined);
+  const [lastCommandReceipt, setLastCommandReceipt] = useState<CommandReceipt | undefined>(undefined);
+  const [companionViewport, setCompanionViewport] = useState<"3d" | "topdown">("3d");
   const [companionStatus, setCompanionStatus] = useState("Companion mode connects automatically through the data-only VDO.Ninja link.");
   const autoDiscoveryStartedRef = useRef(false);
+
+  const bumpHostRevision = useCallback(() => {
+    hostRevisionRef.current = (hostRevisionRef.current + 1) >>> 0;
+    setHostRevision(hostRevisionRef.current);
+  }, []);
 
   useEffect(() => { configRef.current = config; }, [config]);
   useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
   useEffect(() => { sceneRef.current = scene; }, [scene]);
+  useEffect(() => {
+    headsetHostRef.current = headsetHost;
+    bumpHostRevision();
+  }, [bumpHostRevision, headsetHost]);
+  useEffect(() => {
+    xrSupportRef.current = xrSupport;
+    bumpHostRevision();
+  }, [bumpHostRevision, xrSupport]);
+
+  useEffect(() => {
+    const updateVisibility = () => {
+      const next = document.visibilityState === "hidden" ? "hidden" : "visible";
+      if (pageVisibilityRef.current === next) return;
+      pageVisibilityRef.current = next;
+      bumpHostRevision();
+    };
+    updateVisibility();
+    document.addEventListener("visibilitychange", updateVisibility);
+    return () => document.removeEventListener("visibilitychange", updateVisibility);
+  }, [bumpHostRevision]);
 
   useEffect(() => () => { void audioEngine.dispose(); }, [audioEngine]);
 
@@ -137,6 +220,7 @@ export default function StudyApp() {
   }, [audioEngine, scene, xrActive]);
 
   const navigate = useCallback((next: AppView) => {
+    setHeadsetHost(false);
     setView(next);
     const url = new URL(window.location.href);
     if (next === "landing") url.searchParams.delete("view");
@@ -148,7 +232,9 @@ export default function StudyApp() {
   useEffect(() => {
     const readView = () => {
       const value = new URLSearchParams(window.location.search).get("view");
-      setView(value === "trial" || value === "companion" ? value : value === "headset" ? "trial" : "landing");
+      const isHeadset = value === "headset";
+      setHeadsetHost(isHeadset);
+      setView(value === "trial" || value === "companion" ? value : isHeadset ? "trial" : "landing");
     };
     readView();
     addEventListener("popstate", readView);
@@ -172,9 +258,9 @@ export default function StudyApp() {
     return () => { cancelled = true; };
   }, []);
 
-  const appendLog = useCallback((event: string, source: LogRow["source"], snapshot = sceneRef.current) => {
+  const appendLog = useCallback((event: string, source: LogRow["source"], snapshot = sceneRef.current, detail: ControlLogDetail = {}) => {
     const row: LogRow = {
-      schema_version: 1,
+      schema_version: 2,
       session_id: snapshot.sessionId,
       client_time_iso: new Date().toISOString(),
       event,
@@ -185,12 +271,51 @@ export default function StudyApp() {
       paused: snapshot.paused,
       threat_kind: snapshot.threat.kind,
       threat_distance_m: Number(snapshot.threat.distance.toFixed(4)),
+      request_id: detail.requestId ?? "",
+      command_action: detail.action ?? "",
+      receipt_status: detail.status ?? "",
+      receipt_reason: detail.reason ?? "",
+      xr_phase: xrPhaseRef.current,
+      xr_mode: activeXrModeRef.current ?? "",
       scene_json: JSON.stringify(snapshot),
     };
     logsRef.current.push(row);
     if (logsRef.current.length > 12_000) logsRef.current.splice(0, logsRef.current.length - 12_000);
     setLogCount(logsRef.current.length);
   }, []);
+
+  const makeHostRuntime = useCallback((): HostRuntimeReadback => ({
+    version: 1,
+    revision: hostRevisionRef.current,
+    pageVisibility: pageVisibilityRef.current,
+    role: headsetHostRef.current ? "headset" : "participant",
+    xr: {
+      supportChecked: xrSupportRef.current.checked,
+      vrSupported: xrSupportRef.current.vr,
+      arSupported: xrSupportRef.current.ar,
+      engineReady: xrEngineReadyRef.current,
+      phase: xrPhaseRef.current,
+      ...(activeXrModeRef.current ? { activeMode: activeXrModeRef.current } : {}),
+      ...(pendingXrRequestRef.current ? {
+        requestedMode: pendingXrRequestRef.current.mode,
+        pendingRequestId: pendingXrRequestRef.current.requestId,
+      } : {}),
+      frameCount: xrFrameCountRef.current >>> 0,
+    },
+    receipts: receiptsRef.current,
+  }), []);
+
+  const recordReceipt = useCallback((receipt: CommandReceipt, snapshot = sceneRef.current) => {
+    const next = [receipt, ...receiptsRef.current.filter((item) => item.requestId !== receipt.requestId)].slice(0, 16);
+    receiptsRef.current = next;
+    appendLog(`command_${receipt.status}`, "companion", snapshot, {
+      requestId: receipt.requestId,
+      action: receipt.action,
+      status: receipt.status,
+      reason: receipt.reason,
+    });
+    bumpHostRevision();
+  }, [appendLog, bumpHostRevision]);
 
   const rebuildScene = useCallback((overrides: Partial<typeof runtimeRef.current> = {}) => {
     Object.assign(runtimeRef.current, overrides);
@@ -231,30 +356,109 @@ export default function StudyApp() {
   }, [appendLog, rebuildScene]);
 
   const applyCommand = useCallback((command: SceneCommand) => {
-    runtimeRef.current.lastCommandId = command.requestId;
-    let configurationEvent = "";
-    if (command.action === "start") startScenario("companion");
-    else if (command.action === "reset") resetScenario("companion");
-    else if (command.action === "pause" && !runtimeRef.current.paused) pauseScenario("companion");
-    else if (command.action === "resume" && runtimeRef.current.paused) pauseScenario("companion");
-    else if (command.action === "set-threat") {
-      if (!runtimeRef.current.running || isScenarioComplete(sceneRef.current)) {
-        const nextConfig = { ...configRef.current, threatKind: command.value };
-        configRef.current = nextConfig;
-        setConfig(nextConfig);
-        configurationEvent = "set_threat";
-      }
-    } else if (command.action === "set-intensity") {
-      if (!runtimeRef.current.running || isScenarioComplete(sceneRef.current)) {
-        const nextConfig = { ...configRef.current, intensity: command.value };
-        configRef.current = nextConfig;
-        setConfig(nextConfig);
-        configurationEvent = "set_intensity";
-      }
+    if (command.action !== "start") appendLog("command_received", "companion", sceneRef.current, { requestId: command.requestId, action: command.action });
+    const reject = (reason: string, message: string) => recordReceipt({
+      requestId: command.requestId,
+      action: command.action,
+      status: "rejected",
+      reason,
+      message,
+    });
+    const confirm = () => {
+      const applied = rebuildScene({ lastCommandId: command.requestId });
+      recordReceipt({ requestId: command.requestId, action: command.action, status: "confirmed" }, applied);
+    };
+    const runtime = runtimeRef.current;
+    const runningTrial = runtime.running && !isScenarioComplete(sceneRef.current);
+
+    if (command.action === "start") {
+      if (runningTrial) return reject("invalid-state", "The trial is already running; use Resume if it is paused.");
+      startScenario("companion");
+      appendLog("command_received", "companion", sceneRef.current, { requestId: command.requestId, action: command.action });
+      return confirm();
     }
-    const applied = rebuildScene({ lastCommandId: command.requestId });
-    if (configurationEvent) appendLog(configurationEvent, "companion", applied);
-  }, [appendLog, pauseScenario, rebuildScene, resetScenario, startScenario]);
+    if (command.action === "pause") {
+      if (!runningTrial || runtime.paused) return reject("invalid-state", "Pause requires an active, unpaused trial.");
+      pauseScenario("companion");
+      return confirm();
+    }
+    if (command.action === "resume") {
+      if (!runningTrial || !runtime.paused) return reject("invalid-state", "Resume requires a paused trial.");
+      pauseScenario("companion");
+      return confirm();
+    }
+    if (command.action === "reset") {
+      resetScenario("companion");
+      return confirm();
+    }
+    if (command.action === "request-xr") {
+      const supported = command.value === "virtual" ? xrSupportRef.current.vr : xrSupportRef.current.ar;
+      if (!xrSupportRef.current.checked || !xrEngineReadyRef.current) {
+        return reject("engine-not-ready", "The headset WebXR engine is not ready yet.");
+      }
+      if (!supported) return reject("unsupported-mode", "The requested immersive mode is not supported on the headset.");
+      if (xrActiveRef.current || pendingXrRequestRef.current) return reject("invalid-state", "An immersive session or request is already active.");
+      const pending = { requestId: command.requestId, mode: command.value };
+      pendingXrRequestRef.current = pending;
+      setPendingXrRequest(pending);
+      xrPhaseRef.current = "awaiting-local-confirmation";
+      setXrPhase("awaiting-local-confirmation");
+      recordReceipt({
+        requestId: command.requestId,
+        action: command.action,
+        status: "pending",
+        reason: "local-confirmation-required",
+        message: "Waiting for a trusted click or controller confirmation on the headset.",
+      });
+      setXrStatus(`Operator requests ${command.value === "virtual" ? "VR" : "passthrough MR"}. Confirm on this headset to enter.`);
+      return;
+    }
+    if (command.action === "exit-xr") {
+      if (!xrActiveRef.current || !xrRef.current || pendingXrExitRequestRef.current) {
+        return reject("invalid-state", "There is no active immersive session to exit.");
+      }
+      pendingXrExitRequestRef.current = command.requestId;
+      xrPhaseRef.current = "exiting";
+      setXrPhase("exiting");
+      recordReceipt({ requestId: command.requestId, action: command.action, status: "pending", message: "Waiting for the headset session-end event." });
+      void xrRef.current.exit().catch((error) => {
+        pendingXrExitRequestRef.current = undefined;
+        xrPhaseRef.current = "error";
+        setXrPhase("error");
+        recordReceipt({
+          requestId: command.requestId,
+          action: command.action,
+          status: "failed",
+          reason: "session-end-failed",
+          message: error instanceof Error ? error.message : String(error),
+        });
+      });
+      return;
+    }
+
+    const configLocked = runningTrial || xrActiveRef.current;
+    if ((command.action === "set-threat" || command.action === "set-agent-style" || command.action === "set-intensity") && configLocked) {
+      return reject("configuration-locked", "Threat, avatar, and intensity settings are locked while the trial or XR session is active.");
+    }
+    if (command.action === "set-loop" && runningTrial) return reject("configuration-locked", "Loop is locked while the trial is active.");
+    if (command.action === "set-mode" && xrActiveRef.current) return reject("configuration-locked", "Scene mode is locked during an immersive session.");
+
+    let nextConfig = configRef.current;
+    if (command.action === "set-threat") nextConfig = { ...nextConfig, threatKind: command.value };
+    else if (command.action === "set-agent-style") nextConfig = { ...nextConfig, agentStyle: command.value };
+    else if (command.action === "set-intensity") nextConfig = { ...nextConfig, intensity: command.value };
+    else if (command.action === "set-mode") nextConfig = { ...nextConfig, mode: command.value };
+    else if (command.action === "set-loop") nextConfig = { ...nextConfig, loop: command.value };
+    else return reject("invalid-state", "The command is not applicable in the current host state.");
+    configRef.current = nextConfig;
+    setConfig(nextConfig);
+    const applied = evaluateScenario(nextConfig, runtime.elapsedMs, sessionIdRef.current, { ...runtime, lastCommandId: command.requestId });
+    runtimeRef.current.lastCommandId = command.requestId;
+    sceneRef.current = applied;
+    setScene(applied);
+    appendLog(`set_${command.action.replace("set-", "").replaceAll("-", "_")}`, "companion", applied, { requestId: command.requestId, action: command.action });
+    recordReceipt({ requestId: command.requestId, action: command.action, status: "confirmed" }, applied);
+  }, [appendLog, pauseScenario, rebuildScene, recordReceipt, resetScenario, startScenario]);
 
   useEffect(() => {
     const broadcaster = new SceneBroadcaster();
@@ -277,11 +481,25 @@ export default function StudyApp() {
     const frameHandler = (event: Event) => {
       const detail = (event as Event & { detail: ReturnType<SceneReceiver["snapshot"]> }).detail;
       setReceiverState(detail);
-      const ack = detail.latest?.snapshot.lastCommandId;
-      if (ack) {
-        setPendingCommand((current) => current === ack ? "" : current);
-        setCompanionStatus("Host applied the command; live readback confirmed.");
-      } else setCompanionStatus((current) => current.startsWith("Command sent") ? current : "Live scene readback received from the trial host.");
+      setPendingCommand((current) => {
+        if (!current) {
+          setCompanionStatus((status) => status.startsWith("Command") || status.startsWith("Waiting")
+            ? status
+            : "Live scene and headset runtime readback received.");
+          return current;
+        }
+        const receipt = detail.latest?.host.receipts.find((item) => item.requestId === current.requestId);
+        if (!receipt) return current;
+        setLastCommandReceipt(receipt);
+        if (receipt.status === "pending") {
+          setCompanionStatus(receipt.message ?? "Host accepted the command and is waiting for headset confirmation.");
+          return current;
+        }
+        setCompanionStatus(receipt.message ?? (receipt.status === "confirmed"
+          ? "Host readback confirmed the command."
+          : `Host ${receipt.status} the command${receipt.reason ? `: ${receipt.reason}` : "."}`));
+        return undefined;
+      });
     };
     receiver.addEventListener("statechange", receiverStateHandler);
     receiver.addEventListener("frame", frameHandler);
@@ -303,42 +521,59 @@ export default function StudyApp() {
     setScene(next);
   }, [config, sessionId]);
 
+  const advanceScenarioFrame = useCallback((now: number) => {
+    if (xrActiveRef.current) {
+      xrFrameCountRef.current = (xrFrameCountRef.current + 1) >>> 0;
+      if (xrFrameCountRef.current % 15 === 0) bumpHostRevision();
+    }
+    const runtime = runtimeRef.current;
+    if (!runtime.lastFrameAt) runtime.lastFrameAt = now;
+    const rawDelta = Math.max(0, now - runtime.lastFrameAt);
+    const delta = Math.min(100, rawDelta);
+    runtime.lastFrameAt = now;
+    if (runtime.running && rawDelta > 250 && now - lastFrameGapLogAtRef.current > 1_000) {
+      lastFrameGapLogAtRef.current = now;
+      appendLog("frame_gap_clamped", xrActiveRef.current ? "xr-system" : "trial", sceneRef.current);
+    }
+    if (runtime.running && !runtime.paused && !isScenarioComplete(sceneRef.current)) {
+      runtime.elapsedMs += delta;
+      const next = evaluateScenario(configRef.current, runtime.elapsedMs, sessionIdRef.current, runtime);
+      sceneRef.current = next;
+      setScene(next);
+    } else if (runtime.running && isScenarioComplete(sceneRef.current) && configRef.current.loop) {
+      runtime.elapsedMs = 0;
+      appendLog("scenario_loop", "local", sceneRef.current);
+      const next = evaluateScenario(configRef.current, 0, sessionIdRef.current, runtime);
+      sceneRef.current = next;
+      setScene(next);
+    }
+  }, [appendLog, bumpHostRevision]);
+
   useEffect(() => {
     let animationId = 0;
     const tick = (now: number) => {
-      const runtime = runtimeRef.current;
-      if (!runtime.lastFrameAt) runtime.lastFrameAt = now;
-      const delta = Math.min(100, Math.max(0, now - runtime.lastFrameAt));
-      runtime.lastFrameAt = now;
-      if (runtime.running && !runtime.paused && !isScenarioComplete(sceneRef.current)) {
-        runtime.elapsedMs += delta;
-        const next = evaluateScenario(configRef.current, runtime.elapsedMs, sessionIdRef.current, runtime);
-        sceneRef.current = next;
-        setScene(next);
-      } else if (runtime.running && isScenarioComplete(sceneRef.current) && configRef.current.loop) {
-        runtime.elapsedMs = 0;
-        appendLog("scenario_loop", "local", sceneRef.current);
-        const next = evaluateScenario(configRef.current, 0, sessionIdRef.current, runtime);
-        sceneRef.current = next;
-        setScene(next);
-      }
+      if (!xrActiveRef.current) advanceScenarioFrame(now);
       animationId = requestAnimationFrame(tick);
     };
     animationId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(animationId);
-  }, [appendLog]);
+  }, [advanceScenarioFrame]);
 
   useEffect(() => {
-    broadcasterRef.current?.offer(scene);
+    broadcasterRef.current?.offer(scene, makeHostRuntime());
     if (scene.elapsedMs - lastSampleAtRef.current >= 100 || scene.phase !== lastPhaseRef.current) {
       appendLog("sample", "trial", scene);
       lastSampleAtRef.current = scene.elapsedMs;
       lastPhaseRef.current = scene.phase;
     }
-  }, [appendLog, scene]);
+  }, [appendLog, hostRevision, makeHostRuntime, scene]);
 
   const updateConfig = <K extends keyof ScenarioConfig>(key: K, value: ScenarioConfig[K]) => {
-    setConfig((current) => ({ ...current, [key]: value }));
+    setConfig((current) => {
+      const next = { ...current, [key]: value };
+      configRef.current = next;
+      return next;
+    });
   };
 
   const toggleSpatialAudio = async () => {
@@ -361,11 +596,11 @@ export default function StudyApp() {
   const startBroadcast = useCallback(async () => {
     try {
       await broadcasterRef.current?.start();
-      broadcasterRef.current?.offer(sceneRef.current);
+      broadcasterRef.current?.offer(sceneRef.current, makeHostRuntime());
     } catch (error) {
       setBroadcastState({ phase: "error", message: error instanceof Error ? error.message : String(error) });
     }
-  }, []);
+  }, [makeHostRuntime]);
 
   const startDiscovery = useCallback(async () => {
     try { await receiverRef.current?.startDiscovery(); }
@@ -383,6 +618,12 @@ export default function StudyApp() {
     void startDiscovery();
   }, [startDiscovery, view]);
 
+  useEffect(() => {
+    if (!headsetHost) return;
+    const timer = window.setTimeout(() => { void startBroadcast(); }, 0);
+    return () => window.clearTimeout(timer);
+  }, [headsetHost, startBroadcast]);
+
   const start2D = useCallback(() => {
     void startBroadcast();
     if (runtimeRef.current.running && runtimeRef.current.paused && !isScenarioComplete(sceneRef.current)) pauseScenario("trial");
@@ -390,39 +631,85 @@ export default function StudyApp() {
     setXrStatus("2D trial running. Use Continue in immersive 3D at any time.");
   }, [pauseScenario, startBroadcast, startScenario]);
 
-  const enterImmersive = useCallback(async (mode: SceneMode) => {
+  const enterImmersive = useCallback(async (mode: SceneMode, requestId?: string) => {
+    if (requestId) {
+      const pending = pendingXrRequestRef.current;
+      if (!pending || pending.requestId !== requestId || pending.mode !== mode || xrPhaseRef.current !== "awaiting-local-confirmation") return;
+    }
     if (!xrEngineReady || !xrRef.current) {
       setXrStatus("The 3D engine is still preparing. Try the immersive button again in a moment.");
+      if (requestId) {
+        pendingXrRequestRef.current = undefined;
+        setPendingXrRequest(undefined);
+        xrPhaseRef.current = "error";
+        setXrPhase("error");
+        recordReceipt({ requestId, action: "request-xr", status: "failed", reason: "engine-not-ready", message: "The headset WebXR engine was not ready." });
+      }
       return;
     }
 
     // Do not await the data link before requestSession: the WebXR request must
     // remain directly inside this user gesture on Quest Browser.
     void startBroadcast();
+    xrPhaseRef.current = "entering";
+    setXrPhase("entering");
+    bumpHostRevision();
+    if (requestId) recordReceipt({
+      requestId,
+      action: "request-xr",
+      status: "pending",
+      message: "Local confirmation received; waiting for the headset session-start event.",
+    });
     try {
       await xrRef.current.enter(mode);
       const nextConfig = { ...configRef.current, mode };
       configRef.current = nextConfig;
       setConfig(nextConfig);
       setShowXrPreview(true);
-      if (!runtimeRef.current.running || isScenarioComplete(sceneRef.current)) startScenario("trial");
-      else if (runtimeRef.current.paused) pauseScenario("trial");
+      if (!runtimeRef.current.running || isScenarioComplete(sceneRef.current)) startScenario(requestId ? "companion" : "trial");
+      else if (runtimeRef.current.paused) pauseScenario(requestId ? "companion" : "trial");
       setXrStatus(`${mode === "passthrough" ? "Mixed-reality" : "Immersive 3D"} trial running. A resumes/restarts; either trigger pauses.`);
     } catch (error) {
-      setXrStatus(error instanceof Error ? error.message : String(error));
+      const message = error instanceof Error ? error.message : String(error);
+      setXrStatus(message);
+      xrPhaseRef.current = "error";
+      setXrPhase("error");
+      if (requestId) {
+        pendingXrRequestRef.current = undefined;
+        setPendingXrRequest(undefined);
+        recordReceipt({ requestId, action: "request-xr", status: "failed", reason: "request-session-failed", message });
+      } else bumpHostRevision();
     }
-  }, [pauseScenario, startBroadcast, startScenario, xrEngineReady]);
+  }, [bumpHostRevision, pauseScenario, recordReceipt, startBroadcast, startScenario, xrEngineReady]);
+
+  const dismissPendingXr = useCallback(() => {
+    const pending = pendingXrRequestRef.current;
+    if (!pending || xrPhaseRef.current !== "awaiting-local-confirmation") return;
+    pendingXrRequestRef.current = undefined;
+    setPendingXrRequest(undefined);
+    xrPhaseRef.current = "inline";
+    setXrPhase("inline");
+    setXrStatus("The operator XR request was dismissed on the headset.");
+    recordReceipt({
+      requestId: pending.requestId,
+      action: "request-xr",
+      status: "rejected",
+      reason: "local-declined",
+      message: "The headset user dismissed the immersive request.",
+    });
+  }, [recordReceipt]);
 
   const sendCommand = (command: Parameters<SceneReceiver["send"]>[0]) => {
     const requestId = receiverRef.current?.send(command) ?? "";
     if (requestId) {
-      setPendingCommand(requestId);
+      setLastCommandReceipt(undefined);
+      setPendingCommand({ requestId, action: command.action, late: false });
       setCompanionStatus("Command sent; waiting for host readback…");
       window.setTimeout(() => {
         setPendingCommand((current) => {
-          if (current !== requestId) return current;
-          setCompanionStatus("No host readback arrived; the command may not have been applied.");
-          return "";
+          if (current?.requestId !== requestId) return current;
+          setCompanionStatus("Command is late; it remains tracked and will reconcile if host readback arrives.");
+          return { ...current, late: true };
         });
       }, 2_500);
     }
@@ -431,13 +718,15 @@ export default function StudyApp() {
   const exportLog = () => {
     const columns: Array<keyof LogRow> = [
       "schema_version", "session_id", "client_time_iso", "event", "source", "elapsed_ms", "phase",
-      "running", "paused", "threat_kind", "threat_distance_m", "scene_json",
+      "running", "paused", "threat_kind", "threat_distance_m", "request_id", "command_action",
+      "receipt_status", "receipt_reason", "xr_phase", "xr_mode", "scene_json",
     ];
     const csv = [columns.join(","), ...logsRef.current.map((row) => columns.map((column) => quoteCsv(row[column])).join(","))].join("\n");
     downloadText(`${scene.sessionId}.csv`, csv, "text/csv;charset=utf-8");
   };
 
   const remoteScene = receiverState.latest?.snapshot;
+  const remoteHost = receiverState.latest?.host;
   const broadcastPhase = String(broadcastState.phase ?? "idle");
   const listenerCount = Number(broadcastState.listenerCount ?? 0);
   const connectionReadout = broadcastPhase === "broadcasting"
@@ -453,22 +742,55 @@ export default function StudyApp() {
   }, [xrSupport]);
   const shouldMountXr = showXrPreview || xrSupport.vr || xrSupport.ar;
 
-  const handleSessionChange = useCallback((active: boolean) => setXrActive(active), []);
+  const handleSessionChange = useCallback((active: boolean, mode?: SceneMode) => {
+    xrActiveRef.current = active;
+    setXrActive(active);
+    if (active) {
+      const resolvedMode = mode ?? configRef.current.mode;
+      activeXrModeRef.current = resolvedMode;
+      setActiveXrMode(resolvedMode);
+      xrFrameCountRef.current = 0;
+      xrPhaseRef.current = "active";
+      setXrPhase("active");
+      appendLog("xr_session_start", "xr-system");
+      const pending = pendingXrRequestRef.current;
+      pendingXrRequestRef.current = undefined;
+      setPendingXrRequest(undefined);
+      if (pending) {
+        const applied = rebuildScene({ lastCommandId: pending.requestId, lastFrameAt: performance.now() });
+        recordReceipt({ requestId: pending.requestId, action: "request-xr", status: "confirmed" }, applied);
+      } else bumpHostRevision();
+      return;
+    }
+    activeXrModeRef.current = undefined;
+    setActiveXrMode(undefined);
+    xrPhaseRef.current = "inline";
+    setXrPhase("inline");
+    appendLog("xr_session_end", "xr-system");
+    const exitRequestId = pendingXrExitRequestRef.current;
+    pendingXrExitRequestRef.current = undefined;
+    if (exitRequestId) {
+      const applied = rebuildScene({ lastCommandId: exitRequestId, lastFrameAt: performance.now() });
+      recordReceipt({ requestId: exitRequestId, action: "exit-xr", status: "confirmed" }, applied);
+    } else bumpHostRevision();
+  }, [appendLog, bumpHostRevision, rebuildScene, recordReceipt]);
   const handleXrStatus = useCallback((message: string) => setXrStatus(message), []);
   const handleXrReady = useCallback((ready: boolean) => {
+    xrEngineReadyRef.current = ready;
     setXrEngineReady(ready);
+    bumpHostRevision();
     if (ready) setXrStatus((current) => current.startsWith("Preparing") ? "3D engine ready. Start immersive 3D directly or show the browser preview." : current);
-  }, []);
+  }, [bumpHostRevision]);
   const handleXrStart = useCallback(() => {
     if (!runtimeRef.current.running || isScenarioComplete(sceneRef.current)) {
-      startScenario("trial");
+      startScenario("xr-controller");
       setXrStatus("Scenario started or restarted with the right-controller A button.");
     } else if (runtimeRef.current.paused) {
-      pauseScenario("trial");
+      pauseScenario("xr-controller");
     }
   }, [pauseScenario, startScenario]);
   const handleXrPause = useCallback(() => {
-    if (runtimeRef.current.running && !runtimeRef.current.paused) pauseScenario("trial");
+    if (runtimeRef.current.running && !runtimeRef.current.paused) pauseScenario("xr-controller");
   }, [pauseScenario]);
 
   return (
@@ -512,9 +834,23 @@ export default function StudyApp() {
       {view === "trial" && (
         <section className="workspace-shell">
           <header className="workspace-heading">
-            <div><p className="eyebrow"><span /> Phone-ready 2D scene</p><h1>Run the encounter</h1></div>
-            <div className="support-chip"><span className="live-dot" />2D ready on this device · XR optional</div>
+            <div><p className="eyebrow"><span /> {headsetHost ? "Dedicated headset host" : "Phone-ready 2D scene"}</p><h1>Run the encounter</h1></div>
+            <div className="support-chip"><span className="live-dot" />{headsetHost ? `Operator link ${broadcastPhase}` : "2D ready on this device · XR optional"}</div>
           </header>
+
+          {pendingXrRequest && xrPhase === "awaiting-local-confirmation" && (
+            <section className="xr-confirmation" role="alertdialog" aria-live="assertive" aria-label="Operator immersive request">
+              <div>
+                <p className="eyebrow"><span /> Local headset confirmation required</p>
+                <h2>Operator requests {pendingXrRequest.mode === "virtual" ? "immersive VR" : "passthrough MR"}</h2>
+                <p>WebXR requires a trusted action on this headset. Confirm only when the participant and physical space are ready.</p>
+              </div>
+              <div className="xr-confirmation-actions">
+                <button className="button primary" type="button" onClick={() => void enterImmersive(pendingXrRequest.mode, pendingXrRequest.requestId)}>Confirm and enter</button>
+                <button className="button danger" type="button" onClick={dismissPendingXr}>Dismiss request</button>
+              </div>
+            </section>
+          )}
 
           <div className="trial-layout">
             <div className="trial-stage">
@@ -533,7 +869,7 @@ export default function StudyApp() {
               <section className="trial-control-dock" aria-label="Trial controls">
                 <div className="trial-launch-grid">
                   <button className="button primary" type="button" onClick={start2D}>{scene.paused ? "Resume 2D" : scene.phase === "complete" ? "Run 2D again" : scene.running ? "Restart 2D" : "Start 2D"}</button>
-                  <button className="button xr-start" type="button" disabled={!xrSupport.vr || !xrEngineReady || xrActive} onClick={() => void enterImmersive("virtual")}>{scene.running && !isScenarioComplete(scene) ? "Continue in immersive 3D" : "Start immersive 3D"}</button>
+                  <button className="button xr-start" type="button" disabled={!xrSupport.vr || !xrEngineReady || xrActive || Boolean(pendingXrRequest)} onClick={() => void enterImmersive("virtual")}>{scene.running && !isScenarioComplete(scene) ? "Continue in immersive 3D" : "Start immersive 3D"}</button>
                 </div>
                 <div className="trial-transport">
                   <button className="button danger" type="button" disabled={!scene.running || isScenarioComplete(scene)} onClick={() => pauseScenario("trial")}>{scene.paused ? "Resume" : "Pause"}</button>
@@ -574,7 +910,7 @@ export default function StudyApp() {
                   </label>
                   <label className="check-field"><input type="checkbox" checked={config.loop} disabled={scene.running && !isScenarioComplete(scene)} onChange={(event) => updateConfig("loop", event.target.checked)} />Loop after completion</label>
                 </div>
-                <p className="microcopy">The human option uses the CC BY 4.0 Cesium Man model in 3D and a human-proportioned procedural rendering in 2D. Avatar style does not change positions, timing, or behavior.</p>
+                <p className="microcopy">Minimal and 2D human-proportioned faces share an evidence-grounded SVG morph system; procedural 3D faces wrap onto the head sphere rather than a flat plate. The exact faces and transitions still require target-population validation. The human 3D option uses the CC BY 4.0 Cesium Man model. Avatar style does not change positions, timing, or behavior.</p>
               </section>
 
               <section className="control-card audio-card">
@@ -586,7 +922,7 @@ export default function StudyApp() {
               </section>
 
               <section className="control-card xr-addon-card">
-                <div className="card-heading"><div><span>03</span><h2>Optional 3D / WebXR</h2></div><small>{xrActive ? "Immersive" : supportLabel}</small></div>
+                <div className="card-heading"><div><span>03</span><h2>Optional 3D / WebXR</h2></div><small>{xrActive ? `${activeXrMode === "passthrough" ? "MR" : "VR"} active` : xrPhase === "awaiting-local-confirmation" ? "Awaiting confirmation" : supportLabel}</small></div>
                 <p className="addon-copy">The 3D engine prepares automatically. Starting immersive mode directly enters VR and starts or continues the same trial clock.</p>
                 <div className={showXrPreview ? "mini-xr-preview" : "xr-prewarm"} aria-hidden={!showXrPreview}>
                   {shouldMountXr && (
@@ -595,6 +931,7 @@ export default function StudyApp() {
                         ref={xrRef}
                         snapshot={scene}
                         audioEngine={audioEngine}
+                        onFrame={advanceScenarioFrame}
                         onReady={handleXrReady}
                         onStartRequest={handleXrStart}
                         onPauseRequest={handleXrPause}
@@ -606,8 +943,8 @@ export default function StudyApp() {
                 </div>
                 <button className="button link-button" type="button" aria-expanded={showXrPreview} disabled={xrActive} onClick={() => setShowXrPreview((current) => !current)}>{showXrPreview ? "Hide browser 3D preview" : "Show browser 3D preview"}</button>
                 <div className="immersive-buttons">
-                  <button className="button xr" type="button" disabled={!xrSupport.vr || !xrEngineReady || xrActive} onClick={() => void enterImmersive("virtual")}><span>VR</span> {scene.running && !isScenarioComplete(scene) ? "Continue in VR" : "Start in VR"}</button>
-                  <button className="button xr" type="button" disabled={!xrSupport.ar || !xrEngineReady || xrActive} onClick={() => void enterImmersive("passthrough")}><span>MR</span> {scene.running && !isScenarioComplete(scene) ? "Continue in passthrough" : "Start in passthrough"}</button>
+                  <button className="button xr" type="button" disabled={!xrSupport.vr || !xrEngineReady || xrActive || Boolean(pendingXrRequest)} onClick={() => void enterImmersive("virtual")}><span>VR</span> {scene.running && !isScenarioComplete(scene) ? "Continue in VR" : "Start in VR"}</button>
+                  <button className="button xr" type="button" disabled={!xrSupport.ar || !xrEngineReady || xrActive || Boolean(pendingXrRequest)} onClick={() => void enterImmersive("passthrough")}><span>MR</span> {scene.running && !isScenarioComplete(scene) ? "Continue in passthrough" : "Start in passthrough"}</button>
                 </div>
                 <p className="status-line" role="status">{xrStatus}</p>
               </section>
@@ -642,8 +979,34 @@ export default function StudyApp() {
 
           <div className="companion-layout">
             <section className="map-card">
-              <TopdownScene snapshot={remoteScene} stale={receiverState.phase === "stale"} />
-              <div className="map-legend"><span className="legend-viewer">Observer</span><span className="legend-agent">Agent</span><span className="legend-threat">Threat</span></div>
+              <div className="viewport-heading">
+                <div><strong>Authoritative scene-state viewport</strong><small>Not headset video or pose</small></div>
+                <div className="viewport-tabs" aria-label="Operator viewport mode">
+                  <button type="button" aria-pressed={companionViewport === "3d"} onClick={() => setCompanionViewport("3d")}>3D</button>
+                  <button type="button" aria-pressed={companionViewport === "topdown"} onClick={() => setCompanionViewport("topdown")}>Top-down</button>
+                </div>
+              </div>
+              {companionViewport === "topdown" ? (
+                <TopdownScene snapshot={remoteScene} stale={receiverState.phase === "stale"} />
+              ) : remoteScene ? (
+                <div className="operator-xr-viewport">
+                  <Suspense fallback={<div className="scene-loading" role="status">Preparing 3D operator viewport…</div>}>
+                    <XrScene
+                      snapshot={remoteScene}
+                      onFrame={ignoreFrame}
+                      onReady={ignoreReady}
+                      onStartRequest={ignoreRequest}
+                      onPauseRequest={ignoreRequest}
+                      onSessionChange={ignoreSessionChange}
+                      onStatus={ignoreStatus}
+                    />
+                  </Suspense>
+                  {receiverState.phase === "stale" && <div className="viewport-stale" role="status">Scene stream stale · holding the last authoritative state</div>}
+                </div>
+              ) : (
+                <div className="operator-empty">Waiting for the headset scene stream…</div>
+              )}
+              {companionViewport === "topdown" && <div className="map-legend"><span className="legend-viewer">Observer</span><span className="legend-agent">Agent</span><span className="legend-threat">Threat</span></div>}
             </section>
 
             <aside className="control-stack">
@@ -672,30 +1035,53 @@ export default function StudyApp() {
                   <div><dt>Elapsed</dt><dd>{remoteScene ? `${(remoteScene.elapsedMs / 1_000).toFixed(1)} s` : "—"}</dd></div>
                   <div><dt>Threat distance</dt><dd>{remoteScene ? `${remoteScene.threat.distance.toFixed(2)} m` : "—"}</dd></div>
                   <div><dt>Agents afraid</dt><dd>{remoteScene ? `${remoteScene.agents.filter((agent) => agent.expression === "afraid").length} / ${remoteScene.agents.length}` : "—"}</dd></div>
+                  <div><dt>Host role</dt><dd>{remoteHost?.role ?? "—"}</dd></div>
+                  <div><dt>Host page</dt><dd>{remoteHost?.pageVisibility ?? "—"}</dd></div>
+                  <div><dt>XR runtime</dt><dd>{remoteHost ? `${remoteHost.xr.phase}${remoteHost.xr.activeMode ? ` · ${remoteHost.xr.activeMode}` : ""}` : "—"}</dd></div>
+                  <div><dt>XR engine</dt><dd>{remoteHost ? `${remoteHost.xr.engineReady ? "ready" : "loading"} · VR ${remoteHost.xr.vrSupported ? "yes" : "no"} · MR ${remoteHost.xr.arSupported ? "yes" : "no"}` : "—"}</dd></div>
+                  <div><dt>XR frames</dt><dd>{remoteHost?.xr.frameCount ?? "—"}</dd></div>
                   <div><dt>Frame age</dt><dd>{receiverState.packetAgeMs === undefined ? "—" : `${Math.round(receiverState.packetAgeMs)} ms`}</dd></div>
                 </dl>
               </section>
 
               <section className="control-card">
-                <div className="card-heading"><div><span>03</span><h2>Remote controls</h2></div><small>{pendingCommand ? "Awaiting readback" : "Ready"}</small></div>
+                <div className="card-heading"><div><span>03</span><h2>Remote controls</h2></div><small>{pendingCommand ? pendingCommand.late ? "Late · reconciling" : "Awaiting readback" : "Ready"}</small></div>
                 <div className="button-grid">
                   <button className="button primary" type="button" disabled={receiverState.phase !== "live" || Boolean(pendingCommand)} onClick={() => sendCommand({ action: "start" })}>Start</button>
                   <button className="button danger" type="button" disabled={receiverState.phase !== "live" || Boolean(pendingCommand)} onClick={() => sendCommand({ action: remoteScene?.paused ? "resume" : "pause" })}>{remoteScene?.paused ? "Resume" : "Pause now"}</button>
                   <button className="button ghost" type="button" disabled={receiverState.phase !== "live" || Boolean(pendingCommand)} onClick={() => sendCommand({ action: "reset" })}>Reset</button>
                 </div>
+                <div className="button-grid xr-remote-buttons">
+                  <button className="button xr" type="button" disabled={receiverState.phase !== "live" || Boolean(pendingCommand) || !remoteHost?.xr.engineReady || !remoteHost.xr.vrSupported || remoteHost.xr.phase === "active"} onClick={() => sendCommand({ action: "request-xr", value: "virtual" })}>Request VR</button>
+                  <button className="button xr" type="button" disabled={receiverState.phase !== "live" || Boolean(pendingCommand) || !remoteHost?.xr.engineReady || !remoteHost.xr.arSupported || remoteHost.xr.phase === "active"} onClick={() => sendCommand({ action: "request-xr", value: "passthrough" })}>Request MR</button>
+                  <button className="button danger" type="button" disabled={receiverState.phase !== "live" || Boolean(pendingCommand) || remoteHost?.xr.phase !== "active"} onClick={() => sendCommand({ action: "exit-xr" })}>Exit XR</button>
+                </div>
                 <div className="field-grid remote-fields">
                   <label>Threat
-                    <select value={remoteScene?.config.threatKind ?? "shadow"} disabled={receiverState.phase !== "live" || Boolean(pendingCommand) || Boolean(remoteScene?.running && remoteScene.phase !== "complete")} onChange={(event) => sendCommand({ action: "set-threat", value: event.target.value as ThreatKind })}>
+                    <select value={remoteScene?.config.threatKind ?? "shadow"} disabled={receiverState.phase !== "live" || Boolean(pendingCommand) || Boolean(remoteScene?.running && remoteScene.phase !== "complete") || remoteHost?.xr.phase === "active"} onChange={(event) => sendCommand({ action: "set-threat", value: event.target.value as ThreatKind })}>
                       <option value="shadow">Shrouded shadow</option><option value="angry-agent">Angry agent</option><option value="spider">Huntsman spider</option>
                     </select>
                   </label>
+                  <label>Crowd avatars
+                    <select value={remoteScene?.config.agentStyle ?? "minimal"} disabled={receiverState.phase !== "live" || Boolean(pendingCommand) || Boolean(remoteScene?.running && remoteScene.phase !== "complete") || remoteHost?.xr.phase === "active"} onChange={(event) => sendCommand({ action: "set-agent-style", value: event.target.value as AgentStyle })}>
+                      <option value="minimal">Minimal</option><option value="human">Human</option>
+                    </select>
+                  </label>
                   <label>Intensity
-                    <select value={remoteScene?.config.intensity ?? "gentle"} disabled={receiverState.phase !== "live" || Boolean(pendingCommand) || Boolean(remoteScene?.running && remoteScene.phase !== "complete")} onChange={(event) => sendCommand({ action: "set-intensity", value: event.target.value as Intensity })}>
+                    <select value={remoteScene?.config.intensity ?? "gentle"} disabled={receiverState.phase !== "live" || Boolean(pendingCommand) || Boolean(remoteScene?.running && remoteScene.phase !== "complete") || remoteHost?.xr.phase === "active"} onChange={(event) => sendCommand({ action: "set-intensity", value: event.target.value as Intensity })}>
                       <option value="gentle">Gentle</option><option value="standard">Standard</option>
                     </select>
                   </label>
+                  <label>Scene background
+                    <select value={remoteScene?.config.mode ?? "virtual"} disabled={receiverState.phase !== "live" || Boolean(pendingCommand) || remoteHost?.xr.phase === "active"} onChange={(event) => sendCommand({ action: "set-mode", value: event.target.value as SceneMode })}>
+                      <option value="virtual">Dusk clearing</option><option value="passthrough">Neutral study grid</option>
+                    </select>
+                  </label>
+                  <label className="check-field"><input type="checkbox" checked={remoteScene?.config.loop ?? false} disabled={receiverState.phase !== "live" || Boolean(pendingCommand) || Boolean(remoteScene?.running && remoteScene.phase !== "complete")} onChange={(event) => sendCommand({ action: "set-loop", value: event.target.checked })} />Loop after completion</label>
                 </div>
-                <p className="microcopy">A command is complete only when its request ID returns in a host-owned scene frame.</p>
+                {lastCommandReceipt && <p className={`receipt-line ${lastCommandReceipt.status}`}><strong>{lastCommandReceipt.status}</strong> · {lastCommandReceipt.action}{lastCommandReceipt.reason ? ` · ${lastCommandReceipt.reason}` : ""}</p>}
+                {pendingCommand?.late && <button className="text-button" type="button" onClick={() => setPendingCommand(undefined)}>Stop tracking late command</button>}
+                <p className="microcopy">A command is complete only when the exact request ID returns with a terminal host receipt. VR/MR requests pause for a trusted confirmation on the headset.</p>
               </section>
 
               <section className="privacy-card">

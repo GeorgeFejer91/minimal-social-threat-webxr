@@ -1,5 +1,24 @@
 # Project-memory changelog
 
+## 2026-08-28 — Quest XR clock repair and bidirectional PC operator bridge
+
+- Added a dedicated `?view=headset` role that starts the data-only VDO.Ninja host on entry, allowing the PC operator to connect before the scenario starts while preserving the ordinary trial's start-gated connection behavior.
+- Kept scenario snapshots at schema v4 and introduced transport/command envelope v2 with an incompatible discovery namespace, strict full-scenario command validation, bounded exact-request receipts, and host/XR runtime readback.
+- Expanded the PC operator from a top-down companion into top-down and 3D authoritative state viewports with start/pause/resume/reset, threat/avatar/intensity/background/loop configuration, VR/MR request, XR exit, and lifecycle/frame-count readback.
+- Preserved the browser security boundary for WebXR: a remote VR/MR request stages a prominent local headset **Confirm**/**Dismiss** prompt; only the trusted local confirmation invokes immersive entry. Incoming data cannot silently activate XR.
+- Moved immersive scenario-clock advancement to the XR animation loop while presentation is active, preventing the timeline from freezing when Quest Browser suspends its window animation callbacks. Added entry concurrency/failure cleanup and optional `layers` session compatibility.
+- Kept the bridge data-only. The PC viewport reconstructs experiment-owned scene state and receives no video, framebuffer, media, controller pose, or headset pose.
+- Recorded a targeted Quest 3 / Quest Browser 149 diagnostic smoke pass that confirmed WebXR availability, immersive rendering, and the prior frozen-clock failure mode. This device evidence concerns implementation behavior only; it does not scientifically validate the stimulus or replace a final patched-build acceptance pass, soak, safety review, acoustic calibration, or participant pilot.
+
+## 2026-08-28 — evidence-grounded SVG facial morphing and sphere wrapping
+
+- Replaced the procedural Three.js agents' flat face planes with transparent equirectangular facial textures wrapped onto slightly enlarged spherical shells aligned to local +Z.
+- Added `lib/facial-expression.ts`: normalized cubic-Bézier paths for eyebrows, eyes, pupils, nose, and mouth across neutral, happiness, sadness, fear, anger, surprise, and disgust; arbitrary pairwise and weighted blends; SVG export; Canvas drawing; and explicit sphere/UV projection helpers.
+- Mapped existing authoritative states continuously from calm through alert/surprise to fear, while retaining the anger end state for the angry-agent threat. Smoothed the scenario's alarm-fear onset so the visual morph does not jump when alarm begins.
+- Made 2D procedural and human-proportioned faces consume the same geometry and added simple orb/skin shading.
+- Added topology, all-pairs morph, compound blend, transition-continuity, SVG, and spherical-projection tests. A WebGL-disabled browser now reports an optional-3D fallback instead of crashing.
+- Grounded feature choices in FACS-configured stimulus research, facial-region recognition evidence, and dynamic-expression studies, with explicit cultural and validation caveats. These exact project-authored faces remain unvalidated.
+
 ## 2026-08-28 — canonical GithubVR project location
 
 - Relocated the complete Git checkout from the temporary Codex output directory to `D:\GithubVR\github-projects\minimal-social-threat-webxr`.

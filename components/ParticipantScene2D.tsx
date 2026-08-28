@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { drawFaceGeometry, scenarioFaceGeometry } from "../lib/facial-expression";
 import type { AgentState, Expression, SceneSnapshot } from "../lib/scenario";
 
 interface ParticipantScene2DProps {
@@ -26,43 +27,8 @@ function roundedRect(
   context.fill();
 }
 
-function drawFace(context: CanvasRenderingContext2D, x: number, y: number, size: number, expression: Expression) {
-  const eyeY = y - size * 0.08;
-  const eyeGap = size * 0.17;
-  const eyeRadius = Math.max(1.5, size * (expression === "alert" ? 0.065 : 0.048));
-  context.strokeStyle = "#102720";
-  context.fillStyle = "#102720";
-  context.lineWidth = Math.max(1.5, size * 0.045);
-  context.lineCap = "round";
-
-  if (expression === "afraid" || expression === "angry") {
-    const direction = expression === "angry" ? 1 : -1;
-    context.beginPath();
-    context.moveTo(x - eyeGap - size * 0.08, eyeY - direction * size * 0.07);
-    context.lineTo(x - eyeGap + size * 0.07, eyeY + direction * size * 0.02);
-    context.moveTo(x + eyeGap - size * 0.07, eyeY + direction * size * 0.02);
-    context.lineTo(x + eyeGap + size * 0.08, eyeY - direction * size * 0.07);
-    context.stroke();
-  }
-
-  context.beginPath();
-  context.arc(x - eyeGap, eyeY, eyeRadius, 0, Math.PI * 2);
-  context.arc(x + eyeGap, eyeY, eyeRadius, 0, Math.PI * 2);
-  context.fill();
-
-  if (expression === "calm") {
-    context.beginPath();
-    context.arc(x, y + size * 0.08, size * 0.16, 0.12 * Math.PI, 0.88 * Math.PI);
-    context.stroke();
-  } else if (expression === "angry") {
-    context.beginPath();
-    context.arc(x, y + size * 0.28, size * 0.18, 1.15 * Math.PI, 1.85 * Math.PI);
-    context.stroke();
-  } else {
-    context.beginPath();
-    context.ellipse(x, y + size * 0.18, size * 0.09, size * (expression === "afraid" ? 0.13 : 0.09), 0, 0, Math.PI * 2);
-    context.stroke();
-  }
+function drawFace(context: CanvasRenderingContext2D, x: number, y: number, size: number, expression: Expression, fear = 1) {
+  drawFaceGeometry(context, scenarioFaceGeometry(expression, fear), x, y, size * 0.52);
 }
 
 function drawAgent(
@@ -100,7 +66,18 @@ function drawAgent(
     context.lineTo(point.x - size * 0.25, point.y + size * 0.69);
     context.closePath();
     context.fill();
-    context.fillStyle = skin;
+    const skinGradient = context.createRadialGradient(
+      point.x - size * 0.1,
+      point.y - size * 0.16,
+      size * 0.04,
+      point.x,
+      point.y,
+      size * 0.44,
+    );
+    skinGradient.addColorStop(0, "#f3c8ad");
+    skinGradient.addColorStop(0.55, skin);
+    skinGradient.addColorStop(1, "#684437");
+    context.fillStyle = skinGradient;
     context.beginPath();
     context.ellipse(point.x, point.y - size * 0.02, size * 0.31, size * 0.38, 0, 0, Math.PI * 2);
     context.fill();
@@ -108,17 +85,29 @@ function drawAgent(
     context.beginPath();
     context.arc(point.x, point.y - size * 0.1, size * 0.31, Math.PI, Math.PI * 2);
     context.fill();
-    drawFace(context, point.x, point.y, size * 0.72, agent.expression);
+    drawFace(context, point.x, point.y, size * 0.72, agent.expression, agent.fear);
   } else {
     context.fillStyle = color;
     roundedRect(context, point.x - size * 0.4, point.y + size * 0.25, size * 0.8, size * 0.7, size * 0.28);
+    const headGradient = context.createRadialGradient(
+      point.x - size * 0.15,
+      point.y - size * 0.17,
+      size * 0.04,
+      point.x,
+      point.y,
+      size * 0.54,
+    );
+    headGradient.addColorStop(0, "#b7ead8");
+    headGradient.addColorStop(0.42, color);
+    headGradient.addColorStop(1, "#245f51");
+    context.fillStyle = headGradient;
     context.beginPath();
     context.arc(point.x, point.y, size * 0.46, 0, Math.PI * 2);
     context.fill();
     context.strokeStyle = "rgba(239, 255, 248, .36)";
     context.lineWidth = Math.max(1, size * 0.035);
     context.stroke();
-    drawFace(context, point.x, point.y, size, agent.expression);
+    drawFace(context, point.x, point.y, size, agent.expression, agent.fear);
   }
 
   if (agent.expression === "afraid") {

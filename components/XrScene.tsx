@@ -5,7 +5,8 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { clone as cloneSkeleton } from "three/examples/jsm/utils/SkeletonUtils.js";
-import type { Expression, SceneMode, SceneSnapshot, ThreatKind } from "../lib/scenario";
+import { drawFaceOnSphereTexture, scenarioFaceGeometry } from "../lib/facial-expression";
+import type { Expression, SceneMode, SceneSnapshot } from "../lib/scenario";
 import type { SpatialAudioEngine } from "../lib/spatial-audio";
 
 export interface XrSceneHandle {
@@ -16,6 +17,7 @@ export interface XrSceneHandle {
 interface XrSceneProps {
   snapshot: SceneSnapshot;
   audioEngine?: SpatialAudioEngine;
+  onFrame(time: number): void;
   onReady(ready: boolean): void;
   onStartRequest(): void;
   onPauseRequest(): void;
@@ -23,50 +25,37 @@ interface XrSceneProps {
   onStatus(message: string): void;
 }
 
-function faceTexture(expression: Expression | "angry", color: string, threatKind?: ThreatKind) {
+interface FaceSurface {
+  canvas: HTMLCanvasElement;
+  context: CanvasRenderingContext2D;
+  texture: THREE.CanvasTexture;
+  signature: string;
+}
+
+function makeFaceSurface(): FaceSurface {
   const canvas = document.createElement("canvas");
   canvas.width = 256;
-  canvas.height = 256;
+  canvas.height = 128;
   const context = canvas.getContext("2d")!;
-  context.clearRect(0, 0, 256, 256);
-
-  context.fillStyle = color;
-  context.beginPath(); context.arc(128, 128, 96, 0, Math.PI * 2); context.fill();
-  context.strokeStyle = "rgba(14, 28, 24, .42)";
-  context.lineWidth = 8;
-  context.stroke();
-
-  void threatKind;
-
-  context.strokeStyle = "#17231e";
-  context.fillStyle = "#17231e";
-  context.lineCap = "round";
-  context.lineWidth = 13;
-  if (expression === "angry") {
-    context.beginPath(); context.moveTo(73, 89); context.lineTo(106, 101); context.stroke();
-    context.beginPath(); context.moveTo(183, 89); context.lineTo(150, 101); context.stroke();
-  }
-  if (expression === "afraid" || expression === "alert") {
-    context.beginPath(); context.arc(89, 99, expression === "afraid" ? 11 : 9, 0, Math.PI * 2); context.fill();
-    context.beginPath(); context.arc(167, 99, expression === "afraid" ? 11 : 9, 0, Math.PI * 2); context.fill();
-  } else {
-    context.beginPath(); context.arc(89, 103, 8, 0, Math.PI * 2); context.fill();
-    context.beginPath(); context.arc(167, 103, 8, 0, Math.PI * 2); context.fill();
-  }
-
-  context.lineWidth = 11;
-  if (expression === "calm") {
-    context.beginPath(); context.arc(128, 133, 32, 0.18, Math.PI - 0.18); context.stroke();
-  } else if (expression === "angry") {
-    context.beginPath(); context.arc(128, 179, 33, Math.PI + 0.25, Math.PI * 2 - 0.25); context.stroke();
-  } else {
-    context.beginPath(); context.arc(128, 157, expression === "afraid" ? 20 : 13, 0, Math.PI * 2); context.stroke();
-  }
-
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
-  texture.needsUpdate = true;
-  return texture;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  return { canvas, context, texture, signature: "" };
+}
+
+function updateFaceSurface(surface: FaceSurface, expression: Expression, fear: number) {
+  const signature = `${expression}:${fear.toFixed(3)}`;
+  if (surface.signature === signature) return;
+  surface.signature = signature;
+  surface.context.clearRect(0, 0, surface.canvas.width, surface.canvas.height);
+  drawFaceOnSphereTexture(
+    surface.context,
+    scenarioFaceGeometry(expression, fear),
+    surface.canvas.width,
+    surface.canvas.height,
+  );
+  surface.texture.needsUpdate = true;
 }
 
 function dialogueTexture(text: string) {
@@ -101,16 +90,25 @@ function makeAgent(color: string) {
   const head = new THREE.Group();
   head.position.y = 1.53;
   const headMesh = new THREE.Mesh(
-    new THREE.SphereGeometry(0.34, 16, 12),
+    new THREE.SphereGeometry(0.34, 24, 18),
     new THREE.MeshStandardMaterial({ color, roughness: 0.88 }),
   );
   head.add(headMesh);
+  const faceSurface = makeFaceSurface();
+  updateFaceSurface(faceSurface, "calm", 0);
   const face = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.58, 0.58),
-    new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, side: THREE.FrontSide }),
+    new THREE.SphereGeometry(0.344, 24, 18),
+    new THREE.MeshBasicMaterial({
+      map: faceSurface.texture,
+      transparent: true,
+      alphaTest: 0.02,
+      depthWrite: false,
+      side: THREE.FrontSide,
+      toneMapped: false,
+    }),
   );
-  face.position.z = 0.323;
   face.userData.isFace = true;
+  face.userData.faceSurface = faceSurface;
   head.add(face);
   group.add(head);
 
@@ -219,11 +217,12 @@ function makeThreat() {
 }
 
 const XrScene = forwardRef<XrSceneHandle, XrSceneProps>(function XrScene(
-  { snapshot, audioEngine, onReady, onStartRequest, onPauseRequest, onSessionChange, onStatus },
+  { snapshot, audioEngine, onFrame, onReady, onStartRequest, onPauseRequest, onSessionChange, onStatus },
   ref,
 ) {
   const hostRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef(snapshot);
+  const frameRef = useRef(onFrame);
   const startRef = useRef(onStartRequest);
   const pauseRef = useRef(onPauseRequest);
   const audioRef = useRef(audioEngine);
@@ -235,9 +234,11 @@ const XrScene = forwardRef<XrSceneHandle, XrSceneProps>(function XrScene(
   const agentRefs = useRef(new Map<string, THREE.Group>());
   const threatRef = useRef<THREE.Group | undefined>(undefined);
   const activeModeRef = useRef<SceneMode>(snapshot.config.mode);
+  const enterInFlightRef = useRef<Promise<void> | null>(null);
   const textureCache = useRef(new Map<string, THREE.Texture>());
 
   useEffect(() => { stateRef.current = snapshot; }, [snapshot]);
+  useEffect(() => { frameRef.current = onFrame; }, [onFrame]);
   useEffect(() => { startRef.current = onStartRequest; }, [onStartRequest]);
   useEffect(() => { pauseRef.current = onPauseRequest; }, [onPauseRequest]);
   useEffect(() => { audioRef.current = audioEngine; }, [audioEngine]);
@@ -262,17 +263,40 @@ const XrScene = forwardRef<XrSceneHandle, XrSceneProps>(function XrScene(
     async enter(mode: SceneMode) {
       const renderer = rendererRef.current;
       if (!renderer || !navigator.xr) throw new Error("Immersive WebXR is not available in this browser.");
+      if (enterInFlightRef.current) return enterInFlightRef.current;
+      const previousMode = activeModeRef.current;
       applyMode(mode);
       const sessionMode: XRSessionMode = mode === "passthrough" ? "immersive-ar" : "immersive-vr";
       const options: XRSessionInit = {
         requiredFeatures: ["local-floor"],
-        optionalFeatures: mode === "passthrough" ? ["dom-overlay"] : [],
+        optionalFeatures: mode === "passthrough" ? ["layers", "dom-overlay"] : ["layers"],
       };
       if (mode === "passthrough") (options as XRSessionInit & { domOverlay: { root: Element } }).domOverlay = { root: document.body };
       onStatus(`Requesting ${mode === "passthrough" ? "mixed reality" : "virtual reality"}…`);
-      const session = await navigator.xr.requestSession(sessionMode, options);
-      renderer.xr.setReferenceSpaceType("local-floor");
-      await renderer.xr.setSession(session);
+      const sessionRequest = navigator.xr.requestSession(sessionMode, options);
+      const entry = (async () => {
+        const session = await sessionRequest;
+        try {
+          renderer.xr.setReferenceSpaceType("local-floor");
+          await renderer.xr.setSession(session);
+        } catch (error) {
+          try {
+            await session.end();
+          } catch {
+            // Best-effort cleanup preserves the original renderer setup error.
+          }
+          throw error;
+        }
+      })();
+      enterInFlightRef.current = entry;
+      try {
+        await entry;
+      } catch (error) {
+        applyMode(previousMode);
+        throw error;
+      } finally {
+        if (enterInFlightRef.current === entry) enterInFlightRef.current = null;
+      }
     },
     async exit() {
       await rendererRef.current?.xr.getSession()?.end();
@@ -288,7 +312,14 @@ const XrScene = forwardRef<XrSceneHandle, XrSceneProps>(function XrScene(
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(55, 1, 0.05, 60);
     camera.position.set(0, 3.3, 6.8);
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
+    } catch {
+      onReady(false);
+      onStatus("The optional 3D preview needs a browser with WebGL enabled; the complete 2D trial remains available.");
+      return;
+    }
     renderer.xr.enabled = true;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -443,6 +474,7 @@ const XrScene = forwardRef<XrSceneHandle, XrSceneProps>(function XrScene(
     let rightAWasPressed = false;
 
     renderer.setAnimationLoop((time) => {
+      if (renderer.xr.isPresenting) frameRef.current(time);
       const state = stateRef.current;
       if (renderer.xr.isPresenting) {
         const rightController = Array.from(renderer.xr.getSession()?.inputSources ?? [])
@@ -473,9 +505,7 @@ const XrScene = forwardRef<XrSceneHandle, XrSceneProps>(function XrScene(
         }
         const face = agent.userData.face as THREE.Mesh | undefined;
         if (face) {
-          const keyName = `${agent.userData.color}-${agentState.expression}`;
-          (face.material as THREE.MeshBasicMaterial).map = texture(keyName, () => faceTexture(agentState.expression, agent.userData.color));
-          (face.material as THREE.MeshBasicMaterial).needsUpdate = true;
+          updateFaceSurface(face.userData.faceSurface as FaceSurface, agentState.expression, agentState.fear);
         }
         const leftArm = agent.userData.leftArm as THREE.Group;
         const rightArm = agent.userData.rightArm as THREE.Group;
@@ -519,8 +549,7 @@ const XrScene = forwardRef<XrSceneHandle, XrSceneProps>(function XrScene(
         for (const material of (threat.userData.spiderMaterials as THREE.Material[] | undefined) ?? []) material.opacity = visibility;
         if (angryAgent.visible) {
           const face = angryAgent.userData.face as THREE.Mesh;
-          (face.material as THREE.MeshBasicMaterial).map = texture("threat-angry", () => faceTexture("angry", "#e45d5d", "angry-agent"));
-          (face.material as THREE.MeshBasicMaterial).needsUpdate = true;
+          updateFaceSurface(face.userData.faceSurface as FaceSurface, "angry", 1);
         }
         const spiderTwitch = threatState.kind === "spider" ? Math.sin(time * 0.019) * 0.025 : 0;
         proceduralSpider.rotation.z = spiderTwitch;
@@ -531,7 +560,7 @@ const XrScene = forwardRef<XrSceneHandle, XrSceneProps>(function XrScene(
         (aura.material as THREE.MeshBasicMaterial).opacity = visibility * (0.13 + Math.sin(time * 0.0043) * 0.045);
       }
       if (renderer.xr.isPresenting && audioRef.current?.enabled) {
-        const xrCamera = renderer.xr.getCamera(camera);
+        const xrCamera = renderer.xr.getCamera();
         xrCamera.getWorldPosition(listenerPosition);
         xrCamera.getWorldQuaternion(listenerQuaternion);
         listenerForward.set(0, 0, -1).applyQuaternion(listenerQuaternion);
@@ -560,6 +589,7 @@ const XrScene = forwardRef<XrSceneHandle, XrSceneProps>(function XrScene(
           object.geometry.dispose();
           const materials = Array.isArray(object.material) ? object.material : [object.material];
           materials.forEach((material) => material.dispose());
+          (object.userData.faceSurface as FaceSurface | undefined)?.texture.dispose();
         }
       });
       cachedTextures.forEach((item) => item.dispose());

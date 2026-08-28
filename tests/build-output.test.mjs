@@ -61,7 +61,9 @@ test("2D trial is primary and direct immersive entry uses the prewarmed lazy eng
   assert.match(studyApp, /className=\{showXrPreview \? "mini-xr-preview" : "xr-prewarm"\}/);
   assert.match(studyApp, /shouldMountXr = showXrPreview \|\| xrSupport\.vr \|\| xrSupport\.ar/);
   assert.match(studyApp, /void startBroadcast\(\)/);
-  assert.match(studyApp, /Host applied the command; live readback confirmed/);
+  assert.match(studyApp, /detail\.latest\?\.host\.receipts\.find/);
+  assert.match(studyApp, /value === "headset"/);
+  assert.match(studyApp, /if \(!headsetHost\) return;.*startBroadcast/s);
   assert.doesNotMatch(studyApp, /contentReady|trial-ready/);
   assert.match(participantScene, /snapshot\.agents/);
   assert.match(participantScene, /drawThreat/);
@@ -70,7 +72,7 @@ test("2D trial is primary and direct immersive entry uses the prewarmed lazy eng
   assert.match(css, /\.trial-transport/);
 });
 
-test("immersive launch starts the clock and A remains a controller restart/resume action", async () => {
+test("immersive launch uses XR frames, layers, local confirmation, and controller actions", async () => {
   const [studyApp, xrScene] = await Promise.all([
     readFile(new URL("components/StudyApp.tsx", root), "utf8"),
     readFile(new URL("components/XrScene.tsx", root), "utf8"),
@@ -79,10 +81,35 @@ test("immersive launch starts the clock and A remains a controller restart/resum
   assert.match(xrScene, /gamepad\?\.buttons\[4\]\?\.pressed/);
   assert.match(xrScene, /onStartRequest/);
   assert.match(studyApp, /onStartRequest=\{handleXrStart\}/);
+  assert.match(studyApp, /onFrame=\{advanceScenarioFrame\}/);
+  assert.match(studyApp, /if \(!xrActiveRef\.current\) advanceScenarioFrame\(now\)/);
+  assert.match(xrScene, /if \(renderer\.xr\.isPresenting\) frameRef\.current\(time\)/);
   assert.match(studyApp, /await xrRef\.current\.enter\(mode\)/);
-  assert.match(studyApp, /startScenario\("trial"\)/);
   assert.match(xrScene, /navigator\.xr\.requestSession/);
+  assert.match(xrScene, /optionalFeatures: mode === "passthrough" \? \["layers", "dom-overlay"\] : \["layers"\]/);
+  assert.match(studyApp, /Local headset confirmation required/);
+  assert.match(studyApp, /pendingXrRequest\.requestId/);
+  assert.match(studyApp, /xrPhase === "awaiting-local-confirmation"/);
+  assert.match(studyApp, /xrPhaseRef\.current !== "awaiting-local-confirmation"/);
+  assert.match(xrScene, /applyMode\(previousMode\)/);
   assert.doesNotMatch(xrScene, /RingGeometry|informationTexture|marked limit/);
+});
+
+test("v2 companion bridge exposes full controls, runtime readback, and a 3D state viewport", async () => {
+  const [studyApp, sceneSync] = await Promise.all([
+    readFile(new URL("components/StudyApp.tsx", root), "utf8"),
+    readFile(new URL("lib/scene-sync.ts", root), "utf8"),
+  ]);
+  assert.match(sceneSync, /version: 2/);
+  assert.match(sceneSync, /HostRuntimeReadback/);
+  for (const action of ["set-agent-style", "set-mode", "set-loop", "request-xr", "exit-xr"]) {
+    assert.match(sceneSync, new RegExp(`"${action}"`));
+    assert.match(studyApp, new RegExp(`action: "${action}"`));
+  }
+  assert.match(studyApp, /Authoritative scene-state viewport/);
+  assert.match(studyApp, /Not headset video or pose/);
+  assert.match(studyApp, /remoteHost\?\.xr\.frameCount/);
+  assert.match(studyApp, /local-confirmation-required/);
 });
 
 test("GitHub Pages assets are flattened to the project root when a prefix is configured", async () => {
@@ -127,6 +154,23 @@ test("participant renderers consume authoritative shadow visibility", async () =
   assert.match(scenario, /visibility: threatVisibility/);
   assert.match(participantScene, /globalAlpha = snapshot\.threat\.visibility/);
   assert.match(xrScene, /threatState\.visibility/);
+});
+
+test("facial expressions share SVG geometry and wrap onto the procedural head sphere", async () => {
+  const [faces, participantScene, xrScene] = await Promise.all([
+    readFile(new URL("lib/facial-expression.ts", root), "utf8"),
+    readFile(new URL("components/ParticipantScene2D.tsx", root), "utf8"),
+    readFile(new URL("components/XrScene.tsx", root), "utf8"),
+  ]);
+  assert.match(faces, /BASE_FACE_EMOTIONS/);
+  assert.match(faces, /interpolateFaceGeometry/);
+  assert.match(faces, /blendFaceEmotions/);
+  assert.match(faces, /featureToSvgPath/);
+  assert.match(faces, /u:\s*0\.25/);
+  assert.match(participantScene, /scenarioFaceGeometry/);
+  assert.match(xrScene, /drawFaceOnSphereTexture/);
+  assert.match(xrScene, /new THREE\.SphereGeometry\(0\.344/);
+  assert.doesNotMatch(xrScene, /new THREE\.PlaneGeometry\(0\.58, 0\.58\)/);
 });
 
 test("first-read project memory and social preview are shipped", async () => {

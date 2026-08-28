@@ -57,6 +57,19 @@ test("threat awareness spreads with individual detection delays", () => {
   assert.ok(spreading.socialLinks.some((link) => link.kind === "alarm"));
 });
 
+test("alarm fear begins continuously for direct and partner-transmitted detection", () => {
+  const beforeDirect = evaluateScenario(config, 8_049, "test", { running: true }).agents[0];
+  const atDirect = evaluateScenario(config, 8_050, "test", { running: true }).agents[0];
+  const beforePartnerAlarm = evaluateScenario(config, 8_719, "test", { running: true }).agents[1];
+  const atPartnerAlarm = evaluateScenario(config, 8_720, "test", { running: true }).agents[1];
+  assert.equal(beforeDirect.fear, 0);
+  assert.equal(atDirect.fear, 0);
+  assert.equal(beforePartnerAlarm.fear, 0);
+  assert.equal(atPartnerAlarm.fear, 0);
+  assert.equal(atDirect.expression, "alert");
+  assert.equal(atPartnerAlarm.expression, "alert");
+});
+
 test("dialogue and threat cues are deterministic scene data", () => {
   const chat = evaluateScenario(config, 3_200, "test", { running: true });
   assert.equal(chat.audioCues[0]?.kind, "friendly");

@@ -1,31 +1,92 @@
-import { SCENE_SCHEMA_VERSION, type Intensity, type SceneSnapshot, type ThreatKind } from "./scenario.ts";
+import {
+  SCENE_SCHEMA_VERSION,
+  type AgentStyle,
+  type Intensity,
+  type SceneMode,
+  type SceneSnapshot,
+  type ThreatKind,
+} from "./scenario.ts";
 
-export const SCENE_SYNC_ROOM = "minimal_social_threat_v4";
-export const SCENE_SYNC_STREAM_PREFIX = "mst4_scene_";
-export const SCENE_SYNC_CHANNEL = "scenev4";
+export const SCENE_SYNC_ROOM = "minimal_social_threat_bridge_v2";
+export const SCENE_SYNC_STREAM_PREFIX = "mst_bridge_v2_";
+export const SCENE_SYNC_CHANNEL = "scene-bridge-v2";
 export const SCENE_SYNC_STALE_MS = 1_200;
 export const SCENE_SYNC_MAX_HZ = 20;
 
 const MIN_SEND_INTERVAL_MS = 1_000 / SCENE_SYNC_MAX_HZ;
 const HEARTBEAT_MS = 250;
 const DISCOVERY_SETTLE_MS = 350;
-const SDK_OPTIONS = Object.freeze({ password: false, salt: "minimal-social-threat-v4" });
+const SDK_OPTIONS = Object.freeze({ password: false, salt: "minimal-social-threat-bridge-v2" });
+
+const MAX_REQUEST_ID_LENGTH = 80;
+const MAX_RECEIPTS = 16;
+const MAX_RECEIPT_REASON_LENGTH = 160;
+const MAX_RECEIPT_MESSAGE_LENGTH = 500;
+
+export type XrRuntimePhase = "inline" | "awaiting-local-confirmation" | "entering" | "active" | "exiting" | "error";
+export type ReceiptStatus = "pending" | "confirmed" | "rejected" | "failed";
+export type SceneCommandAction =
+  | "start"
+  | "pause"
+  | "resume"
+  | "reset"
+  | "exit-xr"
+  | "set-threat"
+  | "set-agent-style"
+  | "set-intensity"
+  | "set-mode"
+  | "set-loop"
+  | "request-xr";
+
+export interface CommandReceipt {
+  requestId: string;
+  action: SceneCommandAction;
+  status: ReceiptStatus;
+  reason?: string;
+  message?: string;
+}
+
+export interface HostRuntimeReadback {
+  version: 1;
+  revision: number;
+  pageVisibility: "visible" | "hidden";
+  role: "headset" | "participant";
+  xr: {
+    supportChecked: boolean;
+    vrSupported: boolean;
+    arSupported: boolean;
+    engineReady: boolean;
+    phase: XrRuntimePhase;
+    activeMode?: SceneMode;
+    requestedMode?: SceneMode;
+    pendingRequestId?: string;
+    frameCount: number;
+  };
+  receipts: CommandReceipt[];
+}
 
 export type SceneCommand =
-  | { version: 1; type: "command"; requestId: string; action: "start" | "pause" | "resume" | "reset" }
-  | { version: 1; type: "command"; requestId: string; action: "set-threat"; value: ThreatKind }
-  | { version: 1; type: "command"; requestId: string; action: "set-intensity"; value: Intensity };
+  | { version: 2; type: "command"; requestId: string; action: "start" | "pause" | "resume" | "reset" | "exit-xr" }
+  | { version: 2; type: "command"; requestId: string; action: "set-threat"; value: ThreatKind }
+  | { version: 2; type: "command"; requestId: string; action: "set-agent-style"; value: AgentStyle }
+  | { version: 2; type: "command"; requestId: string; action: "set-intensity"; value: Intensity }
+  | { version: 2; type: "command"; requestId: string; action: "set-mode" | "request-xr"; value: SceneMode }
+  | { version: 2; type: "command"; requestId: string; action: "set-loop"; value: boolean };
 
 export type SceneCommandRequest =
-  | { action: "start" | "pause" | "resume" | "reset" }
+  | { action: "start" | "pause" | "resume" | "reset" | "exit-xr" }
   | { action: "set-threat"; value: ThreatKind }
-  | { action: "set-intensity"; value: Intensity };
+  | { action: "set-agent-style"; value: AgentStyle }
+  | { action: "set-intensity"; value: Intensity }
+  | { action: "set-mode" | "request-xr"; value: SceneMode }
+  | { action: "set-loop"; value: boolean };
 
-interface SceneWireFrame {
-  version: 1;
+export interface SceneWireFrame {
+  version: 2;
   type: "scene";
   sequence: number;
   snapshot: SceneSnapshot;
+  host: HostRuntimeReadback;
 }
 
 interface RemoteChannel extends EventTarget {
@@ -96,53 +157,238 @@ export function isNewerSequence(sequence: number, previous?: number) {
   return distance > 0 && distance < 0x80000000;
 }
 
-function validSnapshot(value: unknown): value is SceneSnapshot {
-  if (!value || typeof value !== "object") return false;
-  const item = value as Partial<SceneSnapshot>;
-  return item.schemaVersion === SCENE_SCHEMA_VERSION
-    && typeof item.sessionId === "string" && item.sessionId.length > 0 && item.sessionId.length <= 80
-    && Number.isFinite(item.elapsedMs) && item.elapsedMs! >= 0
-    && ["ready", "baseline", "detected", "approach", "hold", "complete"].includes(String(item.phase))
-    && Boolean(item.config
-      && ["shadow", "angry-agent", "spider"].includes(item.config.threatKind)
-      && ["minimal", "human"].includes(item.config.agentStyle)
-      && ["gentle", "standard"].includes(item.config.intensity)
-      && ["virtual", "passthrough"].includes(item.config.mode))
-    && Array.isArray(item.agents) && item.agents.length === 12
-    && item.agents.every((agent) => typeof agent.id === "string" && agent.id.length <= 40
-      && Number.isFinite(agent.x) && Number.isFinite(agent.z) && Number.isFinite(agent.yaw)
-      && ["calm", "alert", "afraid", "angry"].includes(agent.expression)
-      && ["idle", "meander", "talk", "listen", "orient", "startle", "flee", "freeze"].includes(agent.behavior)
-      && typeof agent.speaking === "boolean" && typeof agent.detectedThreat === "boolean"
-      && Number.isFinite(agent.fear) && agent.fear >= 0 && agent.fear <= 1
-      && Number.isFinite(agent.gait) && Number.isFinite(agent.gesture))
-    && Array.isArray(item.socialLinks) && item.socialLinks.length <= 12
-    && item.socialLinks.every((link) => typeof link.sourceId === "string" && typeof link.targetId === "string"
-      && ["conversation", "alarm"].includes(link.kind))
-    && Array.isArray(item.audioCues) && item.audioCues.length <= 4
-    && item.audioCues.every((cue) => typeof cue.id === "string" && cue.id.length <= 128
-      && typeof cue.sourceId === "string" && typeof cue.text === "string" && cue.text.length <= 80
-      && ["friendly", "murmur", "acknowledge", "warning", "gasp", "roughness", "spider-menace"].includes(cue.kind)
-      && Number.isFinite(cue.x) && Number.isFinite(cue.z) && Number.isFinite(cue.gain)
-      && Number.isFinite(cue.startedAtMs) && Number.isFinite(cue.durationMs))
-    && Boolean(item.threat
-      && ["shadow", "angry-agent", "spider"].includes(item.threat.kind)
-      && Number.isFinite(item.threat.x) && Number.isFinite(item.threat.z)
-      && Number.isFinite(item.threat.distance)
-      && Number.isFinite(item.threat.visibility) && item.threat.visibility >= 0 && item.threat.visibility <= 1);
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-export function encodeSceneFrame(sequence: number, snapshot: SceneSnapshot) {
-  return JSON.stringify({ version: 1, type: "scene", sequence: sequence >>> 0, snapshot } satisfies SceneWireFrame);
+function hasExactKeys(value: Record<string, unknown>, required: readonly string[], optional: readonly string[] = []) {
+  const allowed = new Set([...required, ...optional]);
+  return required.every((key) => Object.prototype.hasOwnProperty.call(value, key))
+    && Object.keys(value).every((key) => allowed.has(key));
+}
+
+function isUint32(value: unknown): value is number {
+  return Number.isInteger(value) && Number(value) >= 0 && Number(value) <= 0xffffffff;
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function isBoundedId(value: unknown, maximum = MAX_REQUEST_ID_LENGTH): value is string {
+  return typeof value === "string" && value.length > 0 && value.length <= maximum && value.trim().length > 0;
+}
+
+function isBoundedString(value: unknown, maximum: number): value is string {
+  return typeof value === "string" && value.length <= maximum;
+}
+
+function isSceneMode(value: unknown): value is SceneMode {
+  return value === "virtual" || value === "passthrough";
+}
+
+function isCommandAction(value: unknown): value is SceneCommandAction {
+  return value === "start" || value === "pause" || value === "resume" || value === "reset" || value === "exit-xr"
+    || value === "set-threat" || value === "set-agent-style" || value === "set-intensity"
+    || value === "set-mode" || value === "set-loop" || value === "request-xr";
+}
+
+function normalizeAgent(value: unknown): SceneSnapshot["agents"][number] | undefined {
+  if (!isRecord(value)) return undefined;
+  const agent = value as unknown as SceneSnapshot["agents"][number];
+  if (!isBoundedId(agent.id, 40)
+    || !isFiniteNumber(agent.x) || !isFiniteNumber(agent.z) || !isFiniteNumber(agent.yaw)
+    || !["calm", "alert", "afraid", "angry"].includes(agent.expression)
+    || !["idle", "meander", "talk", "listen", "orient", "startle", "flee", "freeze"].includes(agent.behavior)
+    || (agent.targetId !== undefined && !isBoundedId(agent.targetId, 40))
+    || typeof agent.speaking !== "boolean" || typeof agent.detectedThreat !== "boolean"
+    || !isFiniteNumber(agent.fear) || agent.fear < 0 || agent.fear > 1
+    || !isFiniteNumber(agent.gait) || !isFiniteNumber(agent.gesture)) return undefined;
+  return {
+    id: agent.id,
+    x: agent.x,
+    z: agent.z,
+    yaw: agent.yaw,
+    expression: agent.expression,
+    behavior: agent.behavior,
+    ...(agent.targetId === undefined ? {} : { targetId: agent.targetId }),
+    speaking: agent.speaking,
+    detectedThreat: agent.detectedThreat,
+    fear: agent.fear,
+    gait: agent.gait,
+    gesture: agent.gesture,
+  };
+}
+
+function normalizeSnapshot(value: unknown): SceneSnapshot | undefined {
+  if (!isRecord(value)) return undefined;
+  const item = value as unknown as SceneSnapshot;
+  if (item.schemaVersion !== SCENE_SCHEMA_VERSION
+    || !isBoundedId(item.sessionId)
+    || !isFiniteNumber(item.elapsedMs) || item.elapsedMs < 0
+    || !["ready", "baseline", "detected", "approach", "hold", "complete"].includes(item.phase)
+    || typeof item.running !== "boolean" || typeof item.paused !== "boolean"
+    || !isRecord(item.config)
+    || !["shadow", "angry-agent", "spider"].includes(item.config.threatKind)
+    || !["minimal", "human"].includes(item.config.agentStyle)
+    || !["gentle", "standard"].includes(item.config.intensity)
+    || !isSceneMode(item.config.mode) || typeof item.config.loop !== "boolean"
+    || !isRecord(item.viewer) || item.viewer.x !== 0 || item.viewer.z !== 0 || item.viewer.yaw !== 0
+    || !Array.isArray(item.agents) || item.agents.length !== 12
+    || !Array.isArray(item.socialLinks) || item.socialLinks.length > 12
+    || !Array.isArray(item.audioCues) || item.audioCues.length > 4
+    || !isRecord(item.threat)
+    || !isFiniteNumber(item.minimumThreatDistance) || item.minimumThreatDistance <= 0
+    || (item.lastCommandId !== undefined && !isBoundedId(item.lastCommandId))) return undefined;
+
+  const agents: SceneSnapshot["agents"] = [];
+  for (const candidate of item.agents) {
+    const agent = normalizeAgent(candidate);
+    if (!agent) return undefined;
+    agents.push(agent);
+  }
+
+  const socialLinks: SceneSnapshot["socialLinks"] = [];
+  for (const candidate of item.socialLinks) {
+    if (!isRecord(candidate)) return undefined;
+    const link = candidate as unknown as SceneSnapshot["socialLinks"][number];
+    if (!isBoundedId(link.sourceId, 40) || !isBoundedId(link.targetId, 40)
+      || (link.kind !== "conversation" && link.kind !== "alarm")) return undefined;
+    socialLinks.push({ sourceId: link.sourceId, targetId: link.targetId, kind: link.kind });
+  }
+
+  const audioCues: SceneSnapshot["audioCues"] = [];
+  for (const candidate of item.audioCues) {
+    if (!isRecord(candidate)) return undefined;
+    const cue = candidate as unknown as SceneSnapshot["audioCues"][number];
+    if (!isBoundedId(cue.id, 128) || !isBoundedId(cue.sourceId, 40)
+      || !isBoundedString(cue.text, 80)
+      || !["friendly", "murmur", "acknowledge", "warning", "gasp", "roughness", "spider-menace"].includes(cue.kind)
+      || !isFiniteNumber(cue.x) || !isFiniteNumber(cue.z) || !isFiniteNumber(cue.gain)
+      || !isFiniteNumber(cue.startedAtMs) || !isFiniteNumber(cue.durationMs) || cue.durationMs < 0) return undefined;
+    audioCues.push({
+      id: cue.id,
+      sourceId: cue.sourceId,
+      kind: cue.kind,
+      text: cue.text,
+      x: cue.x,
+      z: cue.z,
+      gain: cue.gain,
+      startedAtMs: cue.startedAtMs,
+      durationMs: cue.durationMs,
+    });
+  }
+
+  const threat = item.threat;
+  if (!["shadow", "angry-agent", "spider"].includes(threat.kind)
+    || !isFiniteNumber(threat.x) || !isFiniteNumber(threat.z) || !isFiniteNumber(threat.yaw)
+    || threat.expression !== "angry" || !isFiniteNumber(threat.distance) || threat.distance < item.minimumThreatDistance
+    || !isFiniteNumber(threat.visibility) || threat.visibility < 0 || threat.visibility > 1) return undefined;
+
+  return {
+    schemaVersion: SCENE_SCHEMA_VERSION,
+    sessionId: item.sessionId,
+    elapsedMs: item.elapsedMs,
+    phase: item.phase,
+    running: item.running,
+    paused: item.paused,
+    config: {
+      threatKind: item.config.threatKind,
+      agentStyle: item.config.agentStyle,
+      intensity: item.config.intensity,
+      mode: item.config.mode,
+      loop: item.config.loop,
+    },
+    viewer: { x: 0, z: 0, yaw: 0 },
+    agents,
+    socialLinks,
+    audioCues,
+    threat: {
+      kind: threat.kind,
+      x: threat.x,
+      z: threat.z,
+      yaw: threat.yaw,
+      expression: "angry",
+      distance: threat.distance,
+      visibility: threat.visibility,
+    },
+    minimumThreatDistance: item.minimumThreatDistance,
+    ...(item.lastCommandId === undefined ? {} : { lastCommandId: item.lastCommandId }),
+  };
+}
+
+function normalizeReceipt(value: unknown): CommandReceipt | undefined {
+  if (!isRecord(value) || !hasExactKeys(value, ["requestId", "action", "status"], ["reason", "message"])) return undefined;
+  if (!isBoundedId(value.requestId) || !isCommandAction(value.action)
+    || !["pending", "confirmed", "rejected", "failed"].includes(String(value.status))
+    || (value.reason !== undefined && !isBoundedString(value.reason, MAX_RECEIPT_REASON_LENGTH))
+    || (value.message !== undefined && !isBoundedString(value.message, MAX_RECEIPT_MESSAGE_LENGTH))) return undefined;
+  return {
+    requestId: value.requestId,
+    action: value.action,
+    status: value.status as ReceiptStatus,
+    ...(value.reason === undefined ? {} : { reason: value.reason }),
+    ...(value.message === undefined ? {} : { message: value.message }),
+  };
+}
+
+function normalizeHost(value: unknown): HostRuntimeReadback | undefined {
+  if (!isRecord(value) || !hasExactKeys(value, ["version", "revision", "pageVisibility", "role", "xr", "receipts"])
+    || value.version !== 1 || !isUint32(value.revision)
+    || (value.pageVisibility !== "visible" && value.pageVisibility !== "hidden")
+    || (value.role !== "headset" && value.role !== "participant")
+    || !isRecord(value.xr) || !hasExactKeys(value.xr,
+      ["supportChecked", "vrSupported", "arSupported", "engineReady", "phase", "frameCount"],
+      ["activeMode", "requestedMode", "pendingRequestId"])
+    || typeof value.xr.supportChecked !== "boolean" || typeof value.xr.vrSupported !== "boolean"
+    || typeof value.xr.arSupported !== "boolean" || typeof value.xr.engineReady !== "boolean"
+    || !["inline", "awaiting-local-confirmation", "entering", "active", "exiting", "error"].includes(String(value.xr.phase))
+    || (value.xr.activeMode !== undefined && !isSceneMode(value.xr.activeMode))
+    || (value.xr.requestedMode !== undefined && !isSceneMode(value.xr.requestedMode))
+    || (value.xr.pendingRequestId !== undefined && !isBoundedId(value.xr.pendingRequestId))
+    || !isUint32(value.xr.frameCount)
+    || !Array.isArray(value.receipts) || value.receipts.length > MAX_RECEIPTS) return undefined;
+
+  const receipts: CommandReceipt[] = [];
+  for (const candidate of value.receipts) {
+    const receipt = normalizeReceipt(candidate);
+    if (!receipt) return undefined;
+    receipts.push(receipt);
+  }
+  return {
+    version: 1,
+    revision: value.revision,
+    pageVisibility: value.pageVisibility,
+    role: value.role,
+    xr: {
+      supportChecked: value.xr.supportChecked,
+      vrSupported: value.xr.vrSupported,
+      arSupported: value.xr.arSupported,
+      engineReady: value.xr.engineReady,
+      phase: value.xr.phase as XrRuntimePhase,
+      ...(value.xr.activeMode === undefined ? {} : { activeMode: value.xr.activeMode }),
+      ...(value.xr.requestedMode === undefined ? {} : { requestedMode: value.xr.requestedMode }),
+      ...(value.xr.pendingRequestId === undefined ? {} : { pendingRequestId: value.xr.pendingRequestId }),
+      frameCount: value.xr.frameCount,
+    },
+    receipts,
+  };
+}
+
+export function encodeSceneFrame(sequence: number, snapshot: SceneSnapshot, host: HostRuntimeReadback) {
+  return JSON.stringify({ version: 2, type: "scene", sequence: sequence >>> 0, snapshot, host } satisfies SceneWireFrame);
 }
 
 export function decodeSceneFrame(value: unknown): SceneWireFrame | undefined {
   if (typeof value !== "string" || value.length > 32_000) return undefined;
   try {
-    const frame = JSON.parse(value) as Partial<SceneWireFrame>;
-    if (frame.version !== 1 || frame.type !== "scene" || !Number.isInteger(frame.sequence)
-      || frame.sequence! < 0 || frame.sequence! > 0xffffffff || !validSnapshot(frame.snapshot)) return undefined;
-    return frame as SceneWireFrame;
+    const frame = JSON.parse(value) as unknown;
+    if (!isRecord(frame) || !hasExactKeys(frame, ["version", "type", "sequence", "snapshot", "host"])
+      || frame.version !== 2 || frame.type !== "scene" || !isUint32(frame.sequence)) return undefined;
+    const snapshot = normalizeSnapshot(frame.snapshot);
+    const host = normalizeHost(frame.host);
+    if (!snapshot || !host) return undefined;
+    return { version: 2, type: "scene", sequence: frame.sequence, snapshot, host };
   } catch {
     return undefined;
   }
@@ -151,11 +397,32 @@ export function decodeSceneFrame(value: unknown): SceneWireFrame | undefined {
 export function decodeSceneCommand(value: unknown): SceneCommand | undefined {
   if (typeof value !== "string" || value.length > 1_000) return undefined;
   try {
-    const command = JSON.parse(value) as Partial<SceneCommand> & { value?: unknown };
-    if (command.version !== 1 || command.type !== "command" || typeof command.requestId !== "string" || command.requestId.length > 80) return undefined;
-    if (["start", "pause", "resume", "reset"].includes(String(command.action))) return command as SceneCommand;
-    if (command.action === "set-threat" && ["shadow", "angry-agent", "spider"].includes(String(command.value))) return command as SceneCommand;
-    if (command.action === "set-intensity" && ["gentle", "standard"].includes(String(command.value))) return command as SceneCommand;
+    const command = JSON.parse(value) as unknown;
+    if (!isRecord(command) || command.version !== 2 || command.type !== "command"
+      || !isBoundedId(command.requestId) || !isCommandAction(command.action)) return undefined;
+
+    const base = { version: 2 as const, type: "command" as const, requestId: command.requestId };
+    if (command.action === "start" || command.action === "pause" || command.action === "resume"
+      || command.action === "reset" || command.action === "exit-xr") {
+      if (!hasExactKeys(command, ["version", "type", "requestId", "action"])) return undefined;
+      return { ...base, action: command.action };
+    }
+    if (!hasExactKeys(command, ["version", "type", "requestId", "action", "value"])) return undefined;
+    if (command.action === "set-threat" && ["shadow", "angry-agent", "spider"].includes(String(command.value))) {
+      return { ...base, action: command.action, value: command.value as ThreatKind };
+    }
+    if (command.action === "set-agent-style" && (command.value === "minimal" || command.value === "human")) {
+      return { ...base, action: command.action, value: command.value };
+    }
+    if (command.action === "set-intensity" && (command.value === "gentle" || command.value === "standard")) {
+      return { ...base, action: command.action, value: command.value };
+    }
+    if ((command.action === "set-mode" || command.action === "request-xr") && isSceneMode(command.value)) {
+      return { ...base, action: command.action, value: command.value };
+    }
+    if (command.action === "set-loop" && typeof command.value === "boolean") {
+      return { ...base, action: command.action, value: command.value };
+    }
     return undefined;
   } catch {
     return undefined;
@@ -235,6 +502,7 @@ export class SceneBroadcaster extends SceneLinkBase {
   openingPeers = new Set<string>();
   quality = new Map<string, ReturnType<typeof qualitySummary>>();
   latest?: SceneSnapshot;
+  latestHost?: HostRuntimeReadback;
   lastSerialized = "";
   lastSentAt = -Infinity;
   sequence = 0;
@@ -287,19 +555,20 @@ export class SceneBroadcaster extends SceneLinkBase {
     }
   }
 
-  offer(snapshot: SceneSnapshot, offeredAt = performance.now()) {
+  offer(snapshot: SceneSnapshot, host: HostRuntimeReadback, offeredAt = performance.now()) {
     this.latest = snapshot;
-    const serialized = JSON.stringify(snapshot);
+    this.latestHost = host;
+    const serialized = JSON.stringify({ snapshot, host });
     if (serialized !== this.lastSerialized && offeredAt - this.lastSentAt >= MIN_SEND_INTERVAL_MS) return this.flush(false, offeredAt);
     return false;
   }
 
   flush(force = false, sentAt = performance.now(), onlyUuid?: string) {
-    if (this.phase !== "broadcasting" || !this.latest || this.channels.size === 0) return false;
-    const serialized = JSON.stringify(this.latest);
+    if (this.phase !== "broadcasting" || !this.latest || !this.latestHost || this.channels.size === 0) return false;
+    const serialized = JSON.stringify({ snapshot: this.latest, host: this.latestHost });
     if (!force && (serialized === this.lastSerialized || sentAt - this.lastSentAt < MIN_SEND_INTERVAL_MS)) return false;
     const nextSequence = (this.sequence + 1) >>> 0;
-    const wire = encodeSceneFrame(nextSequence, this.latest);
+    const wire = encodeSceneFrame(nextSequence, this.latest, this.latestHost);
     let sent = false;
     const targets: Iterable<[string, RemoteChannel | undefined]> = onlyUuid ? [[onlyUuid, this.channels.get(onlyUuid)]] : this.channels.entries();
     for (const [, channel] of targets) {
@@ -378,6 +647,7 @@ export class SceneBroadcaster extends SceneLinkBase {
     this.openingPeers.clear();
     this.quality.clear();
     this.latest = undefined;
+    this.latestHost = undefined;
     this.lastSerialized = "";
     this.lastSentAt = -Infinity;
     this.sequence = 0;
@@ -435,10 +705,22 @@ export class SceneReceiver extends SceneLinkBase {
 
   removeSource(identifier?: string) {
     if (!identifier) return;
+    const selectedLeft = this.selectedUuid === identifier || this.selectedStreamId === identifier;
     for (const [streamId, source] of this.sources) {
       if (identifier === streamId || identifier === source.uuid) this.sources.delete(streamId);
     }
-    if (this.selectedUuid === identifier || this.selectedStreamId === identifier) this.markStale("The selected scene left the room.");
+    if (selectedLeft) {
+      this.selectedStreamId = "";
+      this.selectedUuid = "";
+      this.channel = undefined;
+      this.latest = undefined;
+      this.lastSequence = undefined;
+      this.quality = qualitySummary();
+      this.phase = "discovering";
+      this.emit({ message: "The selected scene left; looking for its replacement…" });
+      this.scheduleAutoSelection();
+      return;
+    }
     this.emit();
   }
 
@@ -536,11 +818,17 @@ export class SceneReceiver extends SceneLinkBase {
 
   send(command: SceneCommandRequest) {
     if (!this.channel || this.channel.readyState !== "open") return "";
+    const channel = this.channel;
+    const streamId = this.selectedStreamId;
     const requestId = `cmd_${randomHex(6)}`;
-    const wire = { version: 1, type: "command", requestId, ...command } as SceneCommand;
-    this.channel.send(JSON.stringify(wire));
-    this.timeout(() => { if (this.channel?.readyState === "open") this.channel.send(JSON.stringify(wire)); }, 120);
-    this.timeout(() => { if (this.channel?.readyState === "open") this.channel.send(JSON.stringify(wire)); }, 320);
+    const wire = { version: 2, type: "command", requestId, ...command } as SceneCommand;
+    const serialized = JSON.stringify(wire);
+    const retry = () => {
+      if (this.channel === channel && this.selectedStreamId === streamId && channel.readyState === "open") channel.send(serialized);
+    };
+    channel.send(serialized);
+    this.timeout(retry, 120);
+    this.timeout(retry, 320);
     return requestId;
   }
 

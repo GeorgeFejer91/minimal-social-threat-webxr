@@ -120,11 +120,57 @@ University of Washington Graphics and Imaging Laboratory. FERG-3D-DB. https://gr
 - Facial-expression examples and rig parameters for four stylized characters under an access agreement.
 - Not included.
 
+## Minimal facial-expression geometry and dynamics
+
+Du, S., Tao, Y., & Martinez, A. M. (2014). Compound facial expressions of emotion. *Proceedings of the National Academy of Sciences, 111*(15), E1454–E1462. https://doi.org/10.1073/pnas.1322355111
+
+- Supported lesson: FACS coding of 230 participants found recurring action-unit configurations for six conventional component categories and showed that compound categories can combine compatible subordinate action units. The core patterns used here are happiness (AU12/25), sadness (AU4/15), fear (AU1/4/20/25), anger (AU4/7/24), surprise (AU1/2/25/26), and disgust (AU9/10/17), with reported variants.
+- Project use: sets the direction of eyebrow, eyelid, nose, and mouth deformations and motivates topology-compatible weighted blends.
+- Rejected overreach: the paper's photographed faces, FACS coding, and computational discrimination do not validate this simplified SVG geometry or imply that a linear blend equals a naturally produced compound expression.
+
+Wegrzyn, M., Vogt, M., Kireclioglu, B., Schneider, J., & Kissler, J. (2017). Mapping the emotional face: How individual face parts contribute to successful emotion recognition. *PLOS ONE, 12*(5), e0177239. https://doi.org/10.1371/journal.pone.0177239
+
+- Supported lesson: sequential unmasking showed the eyes and mouth were most diagnostic overall; eye-region information was especially important for fear, anger, and sadness, while mouth/lower-face information was especially important for happiness and disgust. Fear/surprise confusion remained prominent.
+- Project use: justifies retaining eyebrows/eye aperture, a minimal nose wrinkle, and mouth geometry instead of reducing the face to eyes and a generic smile/frown.
+- Rejected overreach: diagnostic regions in full photographic faces do not establish recognition rates for the project's stylized faces at crowd distance.
+
+Langner, O., Dotsch, R., Bijlstra, G., Wigboldus, D. H. J., Hawk, S. T., & van Knippenberg, A. (2010). Presentation and validation of the Radboud Faces Database. *Cognition and Emotion, 24*(8), 1377–1388. https://doi.org/10.1080/02699930903485076
+
+- Supported lesson: FACS-configured frontal photographs spanning neutral, happiness, sadness, anger, fear, surprise, disgust, and contempt were rated for intended expression, intensity, clarity, genuineness, attractiveness, and valence; the reported overall intended-expression agreement was 82%.
+- Project use: supports keeping neutral plus the conventional six categories as an auditable reference basis and motivates measuring more than forced-choice identity in project validation.
+- Rejected overreach: RaFD validation applies to its controlled photographs and participant sample, not to these SVG paths, avatar colors, animation, viewing distances, or XR presentation.
+
+van der Schalk, J., Hawk, S. T., Fischer, A. H., & Doosje, B. (2011). Moving faces, looking places: Validation of the Amsterdam Dynamic Facial Expression Set (ADFES). *Emotion, 11*(4), 907–920. https://doi.org/10.1037/a0023853
+
+- Supported lesson: ADFES validates filmed expressions beginning from neutral and includes nine emotion categories plus directed head motion; recognition was high but varied with the social categorization of the model.
+- Project use: motivates treating onset-to-apex dynamics as part of the stimulus and separately testing static end states and animated transitions.
+- Rejected overreach: ADFES timing, actor movement, and recognition do not validate smoothstep Bézier interpolation or the project's orb-headed agents.
+
+Jack, R. E., Garrod, O. G. B., & Schyns, P. G. (2014). Dynamic facial expressions of emotion transmit an evolving hierarchy of signals over time. *Current Biology, 24*(2), 187–192. https://doi.org/10.1016/j.cub.2013.11.064
+
+- Supported lesson: dynamic facial signals conveyed coarser approach/avoidance information earlier and more socially specific category information later rather than transmitting all diagnostic movements simultaneously.
+- Project use: supports continuous, inspectable transition trajectories rather than instant texture swaps.
+- Rejected overreach: the study does not prescribe linear or smoothstep timing for this scenario and explicitly questions treating six categories as psychologically irreducible.
+
+Jack, R. E., Garrod, O. G. B., Yu, H., Caldara, R., & Schyns, P. G. (2012). Facial expressions of emotion are not culturally universal. *Proceedings of the National Academy of Sciences, 109*(19), 7241–7244. https://doi.org/10.1073/pnas.1200155109
+
+- Counterevidence: reverse-correlated dynamic expression models differed between Western Caucasian and East Asian participants in both feature groupings and temporal intensity signals, particularly among negative categories.
+- Project consequence: call the library FACS-informed or evidence-grounded, never culturally universal or scientifically validated; validate label recognition and confusions in the actual target population.
+
 ## Software and transport
 
 VDO.Ninja SDK 1.5.5. https://github.com/steveseguin/ninjasdk/tree/v1.5.5
 
 Three.js. https://github.com/mrdoob/three.js
+
+W3C. WebXR Device API. https://www.w3.org/TR/webxr/
+
+- Project use: immersive session requests require trusted user activation. A VDO.Ninja `request-xr` command therefore stages a headset prompt, and the local **Confirm** action performs `requestSession()`; the PC cannot silently place the headset into VR or MR.
+- Validation boundary: conformance to the browser API and a device smoke test establish software behavior only, not stimulus validity, participant safety, presence, or comfort.
+
+Three.js. `SphereGeometry` and `CanvasTexture` documentation. https://threejs.org/docs/pages/SphereGeometry.html and https://threejs.org/docs/pages/CanvasTexture.html
+
+- Project use: the transparent face texture is updated from an offscreen canvas and mapped to a spherical shell. The checked `SphereGeometry` source places local +Z at `u = 0.25`, which is bound by a projection regression test.
 
 ## Citation rule
 
