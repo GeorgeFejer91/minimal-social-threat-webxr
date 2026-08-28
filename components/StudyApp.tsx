@@ -2,6 +2,7 @@
 
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { XrSceneHandle } from "./XrScene";
+import { ParticipantScene2D } from "./ParticipantScene2D";
 import { TopdownScene } from "./TopdownScene";
 import {
   evaluateScenario,
@@ -14,7 +15,7 @@ import {
 } from "../lib/scenario";
 import { SceneBroadcaster, SceneReceiver, type SceneCommand } from "../lib/scene-sync";
 
-type AppView = "landing" | "headset" | "companion";
+type AppView = "landing" | "trial" | "companion";
 
 const XrScene = lazy(() => import("./XrScene"));
 
@@ -61,7 +62,7 @@ interface LogRow {
   session_id: string;
   client_time_iso: string;
   event: string;
-  source: "headset" | "companion" | "local";
+  source: "trial" | "companion" | "local";
   elapsed_ms: number;
   phase: string;
   running: boolean;
@@ -79,7 +80,7 @@ function Nav({ current, onNavigate }: { current: AppView; onNavigate(view: AppVi
         <span>Social Threat Lab <small>WebXR prototype</small></span>
       </button>
       <div className="nav-links">
-        <button type="button" aria-current={current === "headset" ? "page" : undefined} onClick={() => onNavigate("headset")}>Headset scene</button>
+        <button type="button" aria-current={current === "trial" ? "page" : undefined} onClick={() => onNavigate("trial")}>2D trial</button>
         <button type="button" aria-current={current === "companion" ? "page" : undefined} onClick={() => onNavigate("companion")}>Companion view</button>
       </div>
     </nav>
@@ -97,7 +98,8 @@ export default function StudyApp() {
   const sceneRef = useRef(scene);
   const xrRef = useRef<XrSceneHandle>(null);
   const [xrActive, setXrActive] = useState(false);
-  const [xrStatus, setXrStatus] = useState("Desktop preview ready. Immersive WebXR requires HTTPS or localhost.");
+  const [showXrPreview, setShowXrPreview] = useState(false);
+  const [xrStatus, setXrStatus] = useState("Optional 3D/WebXR view is not loaded.");
   const [xrSupport, setXrSupport] = useState({ vr: false, ar: false, checked: false });
   const [contentReady, setContentReady] = useState(false);
   const [broadcastState, setBroadcastState] = useState<Record<string, unknown>>({ phase: "idle", listenerCount: 0 });
@@ -131,7 +133,7 @@ export default function StudyApp() {
   useEffect(() => {
     const readView = () => {
       const value = new URLSearchParams(window.location.search).get("view");
-      setView(value === "headset" || value === "companion" ? value : "landing");
+      setView(value === "trial" || value === "companion" ? value : value === "headset" ? "trial" : "landing");
     };
     readView();
     addEventListener("popstate", readView);
@@ -310,7 +312,7 @@ export default function StudyApp() {
   useEffect(() => {
     broadcasterRef.current?.offer(scene);
     if (scene.elapsedMs - lastSampleAtRef.current >= 100 || scene.phase !== lastPhaseRef.current) {
-      appendLog("sample", "headset", scene);
+      appendLog("sample", "trial", scene);
       lastSampleAtRef.current = scene.elapsedMs;
       lastPhaseRef.current = scene.phase;
     }
@@ -328,7 +330,7 @@ export default function StudyApp() {
     try {
       await xrRef.current?.enter(mode);
       updateConfig("mode", mode);
-      startScenario("headset");
+      startScenario("trial");
     } catch (error) {
       setXrStatus(error instanceof Error ? error.message : String(error));
     }
@@ -352,11 +354,11 @@ export default function StudyApp() {
     const requestId = receiverRef.current?.send(command) ?? "";
     if (requestId) {
       setPendingCommand(requestId);
-      setCompanionStatus("Command sent; waiting for headset readback…");
+      setCompanionStatus("Command sent; waiting for host readback…");
       window.setTimeout(() => {
         setPendingCommand((current) => {
           if (current !== requestId) return current;
-          setCompanionStatus("No headset readback arrived; the command may not have been applied.");
+          setCompanionStatus("No host readback arrived; the command may not have been applied.");
           return "";
         });
       }, 2_500);
@@ -382,14 +384,14 @@ export default function StudyApp() {
 
   const supportLabel = useMemo(() => {
     if (!xrSupport.checked) return "Checking immersive support…";
-    if (!xrSupport.vr && !xrSupport.ar) return "Desktop preview only in this browser";
+    if (!xrSupport.vr && !xrSupport.ar) return "2D trial ready · immersive XR unavailable here";
     return `${xrSupport.vr ? "VR ready" : "VR unavailable"} · ${xrSupport.ar ? "MR ready" : "MR unavailable"}`;
   }, [xrSupport]);
 
   const handleSessionChange = useCallback((active: boolean) => setXrActive(active), []);
   const handleXrStatus = useCallback((message: string) => setXrStatus(message), []);
   const handleXrPause = useCallback(() => {
-    if (runtimeRef.current.running && !runtimeRef.current.paused) pauseScenario("headset");
+    if (runtimeRef.current.running && !runtimeRef.current.paused) pauseScenario("trial");
   }, [pauseScenario]);
 
   return (
@@ -400,19 +402,19 @@ export default function StudyApp() {
         <section className="landing-shell">
           <div className="hero-copy">
             <p className="eyebrow"><span /> Minimal social-agent study kit</p>
-            <h1>A social threat scene<br />you can read at a glance.</h1>
+            <h1>Run the social encounter<br />on any screen.</h1>
             <p className="hero-lede">
               Six emoji-like agents surround an observer. A visible threat approaches, the group detects it,
-              looks afraid, and moves away—inside virtual reality, passthrough mixed reality, or a desktop preview.
+              looks afraid, and moves away. Run the complete 2D trial on a phone or browser; VR and passthrough MR are optional add-ons.
             </p>
             <div className="hero-actions">
-              <button className="button primary" type="button" onClick={() => navigate("headset")}>Open headset scene <span>→</span></button>
+              <button className="button primary" type="button" onClick={() => navigate("trial")}>Start the 2D trial <span>→</span></button>
               <button className="button ghost" type="button" onClick={() => navigate("companion")}>Open top-down companion</button>
             </div>
             <dl className="hero-facts">
+              <div><dt>2D</dt><dd>phone first</dd></div>
               <div><dt>6</dt><dd>social agents</dd></div>
               <div><dt>1.8 m</dt><dd>hard threat limit</dd></div>
-              <div><dt>20 Hz</dt><dd>scene readback</dd></div>
             </dl>
           </div>
           <div className="hero-diagram" aria-label="Diagram showing a viewer surrounded by agents while a threat approaches">
@@ -430,36 +432,39 @@ export default function StudyApp() {
         </section>
       )}
 
-      {view === "headset" && (
+      {view === "trial" && (
         <section className="workspace-shell">
           <header className="workspace-heading">
-            <div><p className="eyebrow"><span /> Headset scene</p><h1>Run the encounter</h1></div>
-            <div className="support-chip"><span className={xrSupport.vr || xrSupport.ar ? "live-dot" : "idle-dot"} />{supportLabel}</div>
+            <div><p className="eyebrow"><span /> Phone-ready 2D scene</p><h1>Run the encounter</h1></div>
+            <div className="support-chip"><span className="live-dot" />2D ready on this device · XR optional</div>
           </header>
 
-          <div className="headset-layout">
-            <section className="scene-panel">
-              <Suspense fallback={<div className="scene-loading" role="status">Loading procedural scene…</div>}>
-                <XrScene
-                  ref={xrRef}
-                  snapshot={scene}
-                  onPauseRequest={handleXrPause}
-                  onSessionChange={handleSessionChange}
-                  onStatus={handleXrStatus}
-                />
-              </Suspense>
-              <div className="scene-overlay top-left">
-                <span className={`status-dot ${scene.paused ? "paused" : scene.running ? "active" : ""}`} />
-                <strong>{phaseLabel(scene.phase)}</strong>
-                <span>{(scene.elapsedMs / 1_000).toFixed(1)} s</span>
-              </div>
-              <div className="scene-overlay bottom-progress"><span style={{ width: `${phaseProgress}%` }} /></div>
-              <div className="scene-overlay safety-readout">Safety limit <strong>{scene.minimumThreatDistance.toFixed(1)} m</strong></div>
-            </section>
+          <div className="trial-layout">
+            <div className="trial-stage">
+              <section className="scene-panel participant-panel">
+                <ParticipantScene2D snapshot={scene} />
+                <div className="scene-overlay top-left" aria-live="polite">
+                  <span className={`status-dot ${scene.paused ? "paused" : scene.running ? "active" : ""}`} />
+                  <strong>{phaseLabel(scene.phase)}</strong>
+                  <span>{(scene.elapsedMs / 1_000).toFixed(1)} s</span>
+                </div>
+                <div className="scene-overlay bottom-progress"><span style={{ width: `${phaseProgress}%` }} /></div>
+                <div className="scene-overlay safety-readout">Threat <strong>{scene.threat.distance.toFixed(1)} m</strong></div>
+              </section>
+
+              <section className="trial-control-dock" aria-label="Trial controls">
+                <label className="trial-ready" htmlFor="trial-ready" aria-label="Ready to preview the approaching threat"><input id="trial-ready" type="checkbox" checked={contentReady} onChange={(event) => setContentReady(event.target.checked)} /><span><strong>Ready to preview</strong><small>Hostile figure approaches; stop at any time.</small></span></label>
+                <div className="trial-transport">
+                  <button className="button primary" type="button" disabled={!contentReady} onClick={() => startScenario("trial")}>{scene.phase === "complete" ? "Run again" : "Start trial"}</button>
+                  <button className="button danger" type="button" disabled={!scene.running || isScenarioComplete(scene)} onClick={() => pauseScenario("trial")}>{scene.paused ? "Resume" : "Pause"}</button>
+                  <button className="button ghost" type="button" onClick={() => resetScenario("trial")}>Reset</button>
+                </div>
+              </section>
+            </div>
 
             <aside className="control-stack">
               <section className="control-card">
-                <div className="card-heading"><div><span>01</span><h2>Stimulus</h2></div><small>Configure before entry</small></div>
+                <div className="card-heading"><div><span>01</span><h2>2D stimulus</h2></div><small>Configure before starting</small></div>
                 <div className="field-grid">
                   <label>Threat
                     <select value={config.threatKind} disabled={xrActive || (scene.running && !isScenarioComplete(scene))} onChange={(event) => updateConfig("threatKind", event.target.value as ThreatKind)}>
@@ -473,45 +478,53 @@ export default function StudyApp() {
                       <option value="standard">Standard · 12 s approach</option>
                     </select>
                   </label>
-                  <label>Desktop preview
+                  <label>2D background
                     <select value={config.mode} disabled={xrActive} onChange={(event) => updateConfig("mode", event.target.value as SceneMode)}>
-                      <option value="virtual">Dusk clearing background</option>
-                      <option value="passthrough">Transparent / passthrough</option>
+                      <option value="virtual">Dusk clearing</option>
+                      <option value="passthrough">Neutral study grid</option>
                     </select>
                   </label>
                   <label className="check-field"><input type="checkbox" checked={config.loop} disabled={scene.running && !isScenarioComplete(scene)} onChange={(event) => updateConfig("loop", event.target.checked)} />Loop after completion</label>
                 </div>
+                <p className="microcopy">The phone view uses the same positions, expressions, timing, safety distance, logging, and companion readback as the XR add-on.</p>
               </section>
 
-              <section className="control-card warning-card">
-                <div className="card-heading"><div><span>02</span><h2>Readiness</h2></div></div>
-                <p><strong>Content note:</strong> a hostile figure approaches the observer while nearby agents display fear and avoidance. The threat never crosses the 1.8 m marker.</p>
-                <label className="check-field ready-check"><input type="checkbox" checked={contentReady} onChange={(event) => setContentReady(event.target.checked)} />I reviewed the content and stop procedure</label>
-                <p className="microcopy">Either XR controller trigger pauses motion. The companion operator can also pause or reset.</p>
-              </section>
-
-              <section className="control-card">
-                <div className="card-heading"><div><span>03</span><h2>Run</h2></div><small>{xrActive ? "Immersive" : "Desktop"}</small></div>
-                <div className="button-grid">
-                  <button className="button primary" type="button" disabled={!contentReady} onClick={() => startScenario("headset")}>Start preview</button>
-                  <button className="button danger" type="button" disabled={!scene.running} onClick={() => pauseScenario("headset")}>{scene.paused ? "Resume" : "Pause now"}</button>
-                  <button className="button ghost" type="button" onClick={() => resetScenario("headset")}>Reset</button>
-                </div>
-                <div className="immersive-buttons">
-                  <button className="button xr" type="button" disabled={!xrSupport.vr || !contentReady || xrActive} onClick={() => void enterImmersive("virtual")}><span>VR</span> Enter virtual scene</button>
-                  <button className="button xr" type="button" disabled={!xrSupport.ar || !contentReady || xrActive} onClick={() => void enterImmersive("passthrough")}><span>MR</span> Enter passthrough</button>
-                </div>
+              <section className="control-card xr-addon-card">
+                <div className="card-heading"><div><span>02</span><h2>Optional 3D / WebXR</h2></div><small>{xrActive ? "Immersive" : supportLabel}</small></div>
+                <p className="addon-copy">Load this only when you want the orbitable 3D preview, headset VR, or passthrough MR. The 2D trial above is complete on its own.</p>
+                {!showXrPreview ? (
+                  <button className="button link-button" type="button" aria-expanded="false" onClick={() => { setShowXrPreview(true); setXrStatus("3D preview ready. Immersive WebXR requires a supported HTTPS browser."); }}>Load optional 3D / WebXR view</button>
+                ) : (
+                  <>
+                    <div className="mini-xr-preview">
+                      <Suspense fallback={<div className="scene-loading" role="status">Loading optional 3D scene…</div>}>
+                        <XrScene
+                          ref={xrRef}
+                          snapshot={scene}
+                          onPauseRequest={handleXrPause}
+                          onSessionChange={handleSessionChange}
+                          onStatus={handleXrStatus}
+                        />
+                      </Suspense>
+                    </div>
+                    <div className="immersive-buttons">
+                      <button className="button xr" type="button" disabled={!xrSupport.vr || !contentReady || xrActive} onClick={() => void enterImmersive("virtual")}><span>VR</span> Enter virtual scene</button>
+                      <button className="button xr" type="button" disabled={!xrSupport.ar || !contentReady || xrActive} onClick={() => void enterImmersive("passthrough")}><span>MR</span> Enter passthrough</button>
+                    </div>
+                    <button className="text-button close-addon" type="button" disabled={xrActive} onClick={() => setShowXrPreview(false)}>Hide 3D add-on</button>
+                  </>
+                )}
                 <p className="status-line" role="status">{xrStatus}</p>
               </section>
 
               <section className="control-card link-card">
-                <div className="card-heading"><div><span>04</span><h2>Companion link</h2></div><small className={broadcastPhase === "broadcasting" ? "online" : ""}>{connectionReadout}</small></div>
+                <div className="card-heading"><div><span>03</span><h2>Companion link</h2></div><small className={broadcastPhase === "broadcasting" ? "online" : ""}>{connectionReadout}</small></div>
                 {broadcastPhase !== "broadcasting" ? (
                   <button className="button link-button" type="button" onClick={() => void startBroadcast()}>Start scene broadcast</button>
                 ) : (
                   <button className="button ghost" type="button" onClick={() => void broadcasterRef.current?.stop()}>Stop broadcast</button>
                 )}
-                <p className="microcopy">Data only: scenario phase, agent/threat positions, and validated control commands. No microphone, camera, participant name, or headset pose.</p>
+                <p className="microcopy">Data only: scenario phase, agent/threat positions, and allowlisted control commands. No microphone, camera, participant name, or device pose.</p>
               </section>
 
               <section className="export-row">
@@ -540,7 +553,7 @@ export default function StudyApp() {
               <section className="control-card">
                 <div className="card-heading"><div><span>01</span><h2>Connection</h2></div><small className={receiverState.phase === "live" ? "online" : ""}>{receiverState.route}{receiverState.rttMs ? ` · ${receiverState.rttMs} ms` : ""}</small></div>
                 {receiverState.phase === "idle" || receiverState.phase === "error" ? (
-                  <button className="button primary" type="button" onClick={() => void startDiscovery()}>Connect to a headset scene</button>
+                  <button className="button primary" type="button" onClick={() => void startDiscovery()}>Connect to a trial scene</button>
                 ) : (
                   <button className="button ghost" type="button" onClick={() => void receiverRef.current?.stop()}>Disconnect</button>
                 )}
@@ -585,7 +598,7 @@ export default function StudyApp() {
                     </select>
                   </label>
                 </div>
-                <p className="microcopy">A command is complete only when its request ID returns in a headset-owned scene frame.</p>
+                <p className="microcopy">A command is complete only when its request ID returns in a host-owned scene frame.</p>
               </section>
 
               <section className="privacy-card">
@@ -597,7 +610,7 @@ export default function StudyApp() {
         </section>
       )}
 
-      <footer><span>Social Threat Lab · schema v1</span><span>Procedural stimulus · local study logging · VDO.Ninja SDK 1.5.5</span></footer>
+      <footer><span>Social Threat Lab · schema v1</span><span>Phone-first 2D trial · optional WebXR · VDO.Ninja SDK 1.5.5</span></footer>
     </main>
   );
 }

@@ -267,7 +267,7 @@ const XrScene = forwardRef<XrSceneHandle, XrSceneProps>(function XrScene(
       controls.target.set(0, 1.1, -1.5);
       applyMode(stateRef.current.config.mode);
       onSessionChange(false);
-      onStatus("Immersive session ended; desktop preview remains available.");
+      onStatus("Immersive session ended; the optional 3D preview remains available.");
     });
 
     const resize = () => {

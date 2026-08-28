@@ -26,24 +26,43 @@ test("vendored VDO.Ninja SDK 1.5.5 files retain the Affect Tracker hashes", asyn
 });
 
 test("application source cannot request microphone or camera capture", async () => {
-  const files = ["components/StudyApp.tsx", "components/XrScene.tsx", "lib/scene-sync.ts"];
+  const files = ["components/StudyApp.tsx", "components/ParticipantScene2D.tsx", "components/XrScene.tsx", "lib/scene-sync.ts"];
   const source = (await Promise.all(files.map((file) => readFile(new URL(file, root), "utf8")))).join("\n");
   assert.doesNotMatch(source, /getUserMedia|mediaDevices|audio:\s*true|video:\s*true/);
   assert.match(source, /audio: false, video: false/);
 });
 
-test("phone layout uses safe areas, touch targets, dynamic viewport height, and scroll-safe WebGL", async () => {
+test("phone layout uses safe areas, touch targets, dynamic viewport height, and scroll-safe canvases", async () => {
   const [css, xrScene] = await Promise.all([
     readFile(new URL("app/globals.css", root), "utf8"),
     readFile(new URL("components/XrScene.tsx", root), "utf8"),
   ]);
   assert.match(css, /@media \(max-width: 720px\)/);
   assert.match(css, /safe-area-inset-top/);
-  assert.match(css, /52dvh/);
+  assert.match(css, /54dvh/);
   assert.match(css, /min-height:\s*48px/);
   assert.match(css, /touch-action:\s*pan-y/);
   assert.match(xrScene, /\(pointer: coarse\)/);
   assert.match(xrScene, /coarsePointer \? "pan-y" : "none"/);
+});
+
+test("2D trial is the primary playable scene and WebXR remains lazy and optional", async () => {
+  const [studyApp, participantScene, css] = await Promise.all([
+    readFile(new URL("components/StudyApp.tsx", root), "utf8"),
+    readFile(new URL("components/ParticipantScene2D.tsx", root), "utf8"),
+    readFile(new URL("app/globals.css", root), "utf8"),
+  ]);
+  assert.match(studyApp, /type AppView = "landing" \| "trial" \| "companion"/);
+  assert.match(studyApp, /view === "trial"/);
+  assert.match(studyApp, /<ParticipantScene2D snapshot=\{scene\}/);
+  assert.match(studyApp, /Start trial/);
+  assert.match(studyApp, /Load optional 3D \/ WebXR view/);
+  assert.match(studyApp, /showXrPreview \?/);
+  assert.match(participantScene, /snapshot\.agents/);
+  assert.match(participantScene, /drawThreat/);
+  assert.match(participantScene, /agent\.expression === "afraid"/);
+  assert.match(css, /\.participant-canvas/);
+  assert.match(css, /\.trial-transport/);
 });
 
 test("GitHub Pages assets are flattened to the project root when a prefix is configured", async () => {

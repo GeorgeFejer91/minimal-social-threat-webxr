@@ -1,19 +1,16 @@
-# Minimal Social Threat WebXR
+# Minimal Social Threat 2D + WebXR
 
-A small, procedural WebXR research prototype with two browser views:
+A small, procedural social-threat research prototype with a phone-first 2D trial and optional WebXR:
 
 **Live site:** https://georgefejer91.github.io/minimal-social-threat-webxr/
 
-**Direct views:** [headset scene](https://georgefejer91.github.io/minimal-social-threat-webxr/?view=headset) · [companion view](https://georgefejer91.github.io/minimal-social-threat-webxr/?view=companion)
+**Direct views:** [2D trial](https://georgefejer91.github.io/minimal-social-threat-webxr/?view=trial) · [companion view](https://georgefejer91.github.io/minimal-social-threat-webxr/?view=companion)
 
-- **Headset scene:** six minimalist social agents surround the observer; a stylized tiger or angry agent appears, approaches, and causes the group to display alert/fear expressions and avoid it.
+- **2D trial:** a responsive Canvas scene shows six minimalist social agents around the observer; a stylized tiger or angry agent approaches while the group displays alert/fear expressions and avoidance. Start, pause, reset, configure, loop, log, and broadcast all work on a phone.
+- **Optional WebXR:** the Three.js preview, headset VR, and passthrough MR load only when requested.
 - **Companion view:** a realtime top-down diagram, scene readback, and bounded start/pause/reset/configuration controls.
 
-The app supports a virtual dusk-clearing background, WebXR passthrough (`immersive-ar`), and an ordinary desktop preview. No image, audio, or 3D-model downloads are required.
-The landing, headset setup, and top-down companion views also collapse to a
-safe-area-aware single-column phone layout with touch-sized controls. On a
-coarse-pointer phone, the WebGL preview yields vertical gestures to page
-scrolling instead of trapping the page.
+The primary trial supports a dusk-clearing or neutral study-grid background. The optional add-on supports WebXR passthrough (`immersive-ar`). No image, audio, or 3D-model downloads are required. The landing, trial, and companion views use a safe-area-aware single-column phone layout with touch-sized controls; both 2D Canvas and optional WebGL surfaces yield vertical gestures to page scrolling.
 
 ## Important research boundary
 
@@ -24,7 +21,7 @@ This repository is a **stimulus-building prototype**, not a pre-validated paradi
 - timing, minimum distance, manipulation checks, and demand characteristics;
 - device/browser compatibility and cultural or population-specific interpretation.
 
-The threat has a code-tested **1.8 m minimum distance**. “Gentle” takes 18 seconds to approach; “Standard” takes 12 seconds. Either XR controller trigger pauses movement, and the companion can pause or reset the scene.
+The threat has a code-tested **1.8 m minimum distance**. “Gentle” takes 18 seconds to approach; “Standard” takes 12 seconds. Phone controls, either XR controller trigger, and the companion can pause the scene.
 
 ## Quick start
 
@@ -37,10 +34,10 @@ npm run dev
 
 Open `http://localhost:3000/`, then choose a view. Direct links are:
 
-- `http://localhost:3000/?view=headset`
+- `http://localhost:3000/?view=trial`
 - `http://localhost:3000/?view=companion`
 
-For a real headset, host the exported site over HTTPS. On the headset, review the content note, choose VR or MR, and explicitly start the scene broadcast. In a second browser, open the companion and explicitly connect. No signaling or peer connection starts on page load.
+The 2D trial works in an ordinary phone browser. For a headset, host the exported site over HTTPS, open the optional 3D/WebXR card, and choose VR or MR. To synchronize a second browser, explicitly start the scene broadcast and connect from the companion. No signaling or peer connection starts on page load.
 
 ## Validation commands
 
@@ -65,7 +62,7 @@ pushes to `main`:
 2. Add this directory as its contents and push to `main`.
 3. In **Settings → Pages**, choose **GitHub Actions** as the source.
 4. Wait for the **Deploy static WebXR site** workflow.
-5. Open `https://<account>.github.io/<repository>/?view=headset` on the headset.
+5. Open `https://<account>.github.io/<repository>/?view=trial` on a phone or headset.
 
 The workflow supplies the repository base path. If you use a custom domain at the root, change `PAGES_BASE_PATH` and `NEXT_PUBLIC_BASE_PATH` to empty strings in the workflow.
 
@@ -73,16 +70,16 @@ The workflow supplies the repository base path. If you use a custom domain at th
 
 | Concern | Authority | Readback |
 | --- | --- | --- |
-| Scenario clock, phase, agent behavior, threat distance | Headset page | Versioned scene frame at up to 20 Hz |
-| Start/pause/reset/threat/intensity request | Companion page | Applied only by headset; command ID returns in a headset-owned frame |
+| Scenario clock, phase, agent behavior, threat distance | 2D trial host | Versioned scene frame at up to 20 Hz |
+| Start/pause/reset/threat/intensity request | Companion page | Applied only by the trial host; command ID returns in a host-owned frame |
 | Rendering | Each browser | Same positions/phase from the latest accepted frame |
-| Logging | Headset page | Downloadable bounded CSV; never uploaded by this app |
+| Logging | 2D trial host | Downloadable bounded CSV; never uploaded by this app |
 
 The scene transport follows the Affect Tracker’s remote-Flubber pattern: bundled VDO.Ninja SDK 1.5.5, a data-only public discovery room, anonymous random stream IDs, no media tracks, `ordered: false`, `maxRetransmits: 0`, newest-state backpressure, sequence validation, automatic selection only when one source exists, and an explicit stale state. The richer scene uses versioned JSON rather than Affect Tracker’s 12-byte X/Y frame.
 
 ### Wire data
 
-The headset sends only:
+The trial host sends only:
 
 - anonymous in-memory session ID;
 - scenario configuration, phase, elapsed scenario time, and pause/run state;
@@ -95,7 +92,7 @@ VDO.Ninja still uses third-party signaling and STUN/TURN. WebRTC peers may learn
 
 ## Study log
 
-The headset holds at most 12,000 rows in memory and exports CSV on demand. Rows contain schema version, anonymous session ID, client time, event/source, scenario time, phase/run state, threat kind/distance, and the complete versioned procedural scene as JSON. Refreshing closes the session and clears unsaved data.
+The trial host holds at most 12,000 rows in memory and exports CSV on demand. Rows contain schema version, anonymous session ID, client time, event/source, scenario time, phase/run state, threat kind/distance, and the complete versioned procedural scene as JSON. Refreshing closes the session and clears unsaved data.
 
 ## Physical acceptance checklist
 
@@ -111,7 +108,8 @@ The automated checks do not qualify a headset study. Before claiming support, re
 
 ## Repository map
 
-- `components/XrScene.tsx` — Three.js desktop/WebXR renderer and procedural agents.
+- `components/ParticipantScene2D.tsx` — phone-first Canvas renderer and minimalist emotional agents.
+- `components/XrScene.tsx` — optional Three.js/WebXR renderer and procedural agents.
 - `lib/scenario.ts` — deterministic scenario timeline and safety contract.
 - `lib/scene-sync.ts` — VDO.Ninja transport, codec, discovery, command validation, and stale handling.
 - `components/TopdownScene.tsx` — companion canvas renderer.

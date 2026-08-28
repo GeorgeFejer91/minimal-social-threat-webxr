@@ -116,7 +116,7 @@ export function TopdownScene({ snapshot, stale = false }: TopdownSceneProps) {
         context.fillStyle = "rgba(223,246,234,.65)";
         context.font = "600 13px system-ui";
         context.textAlign = "center";
-        context.fillText("Connect to a headset scene", viewer.x, h - 30);
+        context.fillText("Connect to a trial scene", viewer.x, h - 30);
       }
 
       if (stale) {
@@ -137,4 +137,3 @@ export function TopdownScene({ snapshot, stale = false }: TopdownSceneProps) {
 
   return <canvas ref={canvasRef} className="topdown-canvas" aria-label="Live top-down view of the observer, social agents, and approaching threat" />;
 }
-

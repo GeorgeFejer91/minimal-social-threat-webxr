@@ -4,7 +4,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Social Threat Lab",
-  description: "Minimal WebXR social-agent study prototype.",
+  description: "Phone-first 2D social-agent study prototype with optional WebXR.",
 };
 
 export const viewport: Viewport = {
