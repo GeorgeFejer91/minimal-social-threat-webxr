@@ -724,6 +724,20 @@ export class SceneReceiver extends SceneLinkBase {
     this.emit();
   }
 
+  handleSelectedChannelClose(streamId: string, channel: RemoteChannel) {
+    if (this.channel !== channel || this.selectedStreamId !== streamId) return;
+    this.sources.delete(streamId);
+    this.selectedStreamId = "";
+    this.selectedUuid = "";
+    this.channel = undefined;
+    this.latest = undefined;
+    this.lastSequence = undefined;
+    this.quality = qualitySummary();
+    this.phase = "discovering";
+    this.emit({ message: "The realtime scene channel closed; looking for a replacement…" });
+    this.scheduleAutoSelection();
+  }
+
   scheduleAutoSelection() {
     if (this.discoveryTimer || this.selectedStreamId) return;
     this.discoveryTimer = this.timeout(() => {
@@ -796,7 +810,7 @@ export class SceneReceiver extends SceneLinkBase {
       if (this.channel === acceptedChannel && this.selectedStreamId === acceptedStream) this.acceptFrame(event.data);
     }) as EventListener);
     acceptedChannel.addEventListener("close", (() => {
-      if (this.channel === acceptedChannel) this.markStale("The realtime scene channel closed.");
+      this.handleSelectedChannelClose(acceptedStream, acceptedChannel);
     }) as EventListener, { once: true });
     this.emit({ message: "Realtime channel open; waiting for a scene frame…" });
     void this.refreshQuality();

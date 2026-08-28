@@ -203,3 +203,25 @@ test("a departed selected source is cleared so replacement discovery can resume"
   assert.notEqual(receiver.discoveryTimer, undefined);
   await receiver.stop();
 });
+
+test("a closed selected channel is cleared without disturbing a replacement channel", async () => {
+  const receiver = new SceneReceiver();
+  const firstChannel = { readyState: "closed" } as unknown as NonNullable<SceneReceiver["channel"]>;
+  const replacementChannel = { readyState: "open" } as unknown as NonNullable<SceneReceiver["channel"]>;
+  receiver.sources.set("mst_bridge_v2_first", { streamId: "mst_bridge_v2_first", uuid: "peer_first", label: "Scene FIRST" });
+  receiver.sources.set("mst_bridge_v2_second", { streamId: "mst_bridge_v2_second", uuid: "peer_second", label: "Scene SECOND" });
+  receiver.selectedStreamId = "mst_bridge_v2_first";
+  receiver.selectedUuid = "peer_first";
+  receiver.channel = firstChannel;
+  receiver.handleSelectedChannelClose("mst_bridge_v2_first", firstChannel);
+  assert.equal(receiver.selectedStreamId, "");
+  assert.equal(receiver.phase, "discovering");
+  assert.deepEqual([...receiver.sources.keys()], ["mst_bridge_v2_second"]);
+
+  receiver.selectedStreamId = "mst_bridge_v2_second";
+  receiver.channel = replacementChannel;
+  receiver.handleSelectedChannelClose("mst_bridge_v2_first", firstChannel);
+  assert.equal(receiver.selectedStreamId, "mst_bridge_v2_second");
+  assert.equal(receiver.channel, replacementChannel);
+  await receiver.stop();
+});

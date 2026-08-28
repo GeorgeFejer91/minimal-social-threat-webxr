@@ -110,6 +110,8 @@ The trial host holds at most 12,000 rows in memory and exports CSV on demand. Ro
 
 The automated checks do not qualify a headset study. Before claiming support, record:
 
+The 2026-08-28 Quest 3 / Quest Browser 149 smoke pass for source `3825279` covered public VR entry with local confirmation, XR-frame clock progression, PC command receipts, pause/resume, and remote XR exit. The unchecked items below—including MR, controller mapping, recovery, and soak—remain required before participant use.
+
 - headset model, OS, browser version, and served HTTPS URL;
 - `immersive-vr` and `immersive-ar` entry/exit;
 - virtual background and compositor passthrough behavior;

@@ -8,7 +8,7 @@
 - Preserved the browser security boundary for WebXR: a remote VR/MR request stages a prominent local headset **Confirm**/**Dismiss** prompt; only the trusted local confirmation invokes immersive entry. Incoming data cannot silently activate XR.
 - Moved immersive scenario-clock advancement to the XR animation loop while presentation is active, preventing the timeline from freezing when Quest Browser suspends its window animation callbacks. Added entry concurrency/failure cleanup and optional `layers` session compatibility.
 - Kept the bridge data-only. The PC viewport reconstructs experiment-owned scene state and receives no video, framebuffer, media, controller pose, or headset pose.
-- Recorded a targeted Quest 3 / Quest Browser 149 diagnostic smoke pass that confirmed WebXR availability, immersive rendering, and the prior frozen-clock failure mode. This device evidence concerns implementation behavior only; it does not scientifically validate the stimulus or replace a final patched-build acceptance pass, soak, safety review, acoustic calibration, or participant pilot.
+- Recorded the patched source `3825279` Quest 3 / Quest Browser 149 acceptance pass on the public GitHub Pages headset and companion routes: exact pending/confirmed XR receipts, trusted local entry, non-frozen immersive clock/frame progression, bidirectional start/pause/resume/reset/configuration, and remote XR exit all converged. This does not validate MR, controller mappings, recovery/soak, safety, comfort, acoustics, or the experimental paradigm.
 
 ## 2026-08-28 — evidence-grounded SVG facial morphing and sphere wrapping
 
