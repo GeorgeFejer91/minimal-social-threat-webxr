@@ -12,20 +12,21 @@
 - Non-simultaneous threat detection.
 - Threat distance never below 1.8 m in the authoritative model.
 - Complete 2D trial, optional WebXR, pause/reset, bounded logging, and synchronization contracts.
-- Direct Start 2D / Start immersive 3D controls, a shared clock whose authority moves to XR animation frames during immersion, and automatic data-link startup/discovery.
+- The large main trial viewport switches between the authoritative live 2D Canvas and live Three.js renderer without changing the scenario state or clock.
+- Direct Start preview / Start immersive 3D controls, a shared clock whose authority moves to XR animation frames during immersion, and automatic data-link startup/discovery.
 - A dedicated headset host role, version-2 data-only operator transport, full versioned scenario controls, bounded per-request receipts, XR lifecycle/readback, and top-down/3D authoritative state reconstruction.
 - Remote VR/MR requests stage a local headset confirmation to preserve WebXR's trusted-user-activation boundary; they cannot silently enter immersive mode.
 - Three threat renderings and two avatar styles are explicit versioned configuration fields.
 - The spider rendering faces the observer and uses a deterministic alternating eight-leg gait in both 2D and 3D; this is software behavior, not biological or threat validation.
 - The virtual forest has a code-tested tree-and-canopy-free central threat corridor shared by 2D and 3D renderers; visual composition and frame-time still require physical-device acceptance.
 - Shared cubic-Bézier face geometry has seven compatible end states, deterministic pairwise/weighted morphing, committed planar/spherical SVG assets, and a tested texture-free sphere-vector projection with stable mesh topology; this establishes software behavior, not recognition validity.
-- Immersive-owned audio: the non-immersive page is silent, while the trusted local VR/MR entry action automatically starts the schema-v5 HRTF cue schedule without a separate setting. The listener follows the XR camera and session exit disposes the graph; no microphone/camera is requested.
+- Locally activated scene audio: **Start preview** automatically runs the schema-v5 HRTF cue schedule in either browser renderer, while trusted local VR/MR entry runs it with the listener following the XR camera. There is no separate setting; reset/completion or XR exit disposes the relevant graph, and no microphone/camera is requested.
 - The generated threat layers have deterministic, unit-tested parameters and separate IDs: PPS Kit-derived broadband burst localization across approach, followed by a three-second 70 Hz rough harmonic reconstruction at final approach. HRTF direction consumes authoritative `x/y/z` source coordinates, with upright threats at 1.55 m and the spider at 0.42 m; one −18→0 dB relative level law and propagation delay consume authoritative threat distance. This establishes software traceability only.
 - A 2026-08-29 earlier local-browser control check confirmed the then-current manual enable/disable behavior and clean graph teardown without console warnings. That activation policy was later superseded by R32; it is retained as historical evidence only and is not acceptance evidence for automatic immersive audio.
 
 ## Website delivery gate
 
-For any website-affecting change, local validation is necessary but not sufficient. Completion requires a pushed source commit, a successful GitHub Pages publication tied to that exact source revision, and an HTTPS readback of every affected public route. The current Pages configuration publishes the generated `gh-pages` branch, so a `main` push without a corresponding deployment does not pass this gate. Record failures or unavailable credentials as **implemented locally; deployment pending**.
+For any website-affecting change, local validation is necessary but not sufficient. Completion requires a pushed source commit, a successful GitHub Pages publication tied to that exact source revision, and an HTTPS readback of every affected public route. GitHub Pages is the sole delivery target; ChatGPT Sites is not part of the gate. The current Pages configuration publishes the generated `gh-pages` branch, so a `main` push without a corresponding deployment does not pass this gate. Record failures or unavailable credentials as **implemented locally; deployment pending**.
 
 ## Required before study use
 

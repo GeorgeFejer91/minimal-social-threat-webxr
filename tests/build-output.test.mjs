@@ -46,7 +46,7 @@ test("phone layout uses safe areas, touch targets, dynamic viewport height, and 
   assert.match(xrScene, /coarsePointer \? "pan-y" : "none"/);
 });
 
-test("2D trial is primary and direct immersive entry uses the prewarmed lazy engine", async () => {
+test("main trial viewport switches between live 2D and 3D renderers", async () => {
   const [studyApp, participantScene, css] = await Promise.all([
     readFile(new URL("components/StudyApp.tsx", root), "utf8"),
     readFile(new URL("components/ParticipantScene2D.tsx", root), "utf8"),
@@ -54,12 +54,15 @@ test("2D trial is primary and direct immersive entry uses the prewarmed lazy eng
   ]);
   assert.match(studyApp, /type AppView = "landing" \| "trial" \| "companion"/);
   assert.match(studyApp, /view === "trial"/);
-  assert.match(studyApp, /<ParticipantScene2D snapshot=\{scene\}/);
-  assert.match(studyApp, /Start 2D/);
+  assert.match(studyApp, /const \[previewMode, setPreviewMode\] = useState<"2d" \| "3d">\("2d"\)/);
+  assert.match(studyApp, /previewMode === "2d" && <ParticipantScene2D snapshot=\{scene\}/);
+  assert.match(studyApp, /previewMode === "3d" \? "browser-xr-view" : "xr-prewarm"/);
+  assert.match(studyApp, /aria-pressed=\{previewMode === "2d"\}[\s\S]*?2D view/);
+  assert.match(studyApp, /aria-pressed=\{previewMode === "3d"\}[\s\S]*?3D view/);
+  assert.match(studyApp, /Start preview/);
   assert.match(studyApp, /Start immersive 3D/);
   assert.match(studyApp, /onReady=\{handleXrReady\}/);
-  assert.match(studyApp, /className=\{showXrPreview \? "mini-xr-preview" : "xr-prewarm"\}/);
-  assert.match(studyApp, /shouldMountXr = showXrPreview \|\| xrSupport\.vr \|\| xrSupport\.ar/);
+  assert.match(studyApp, /shouldMountXr = previewMode === "3d" \|\| xrSupport\.vr \|\| xrSupport\.ar/);
   assert.match(studyApp, /void startBroadcast\(\)/);
   assert.match(studyApp, /detail\.latest\?\.host\.receipts\.find/);
   assert.match(studyApp, /value === "headset"/);
@@ -69,6 +72,8 @@ test("2D trial is primary and direct immersive entry uses the prewarmed lazy eng
   assert.match(participantScene, /drawThreat/);
   assert.match(participantScene, /agent\.expression === "afraid"/);
   assert.match(css, /\.participant-canvas/);
+  assert.match(css, /\.browser-xr-view/);
+  assert.match(css, /\.scene-view-switch/);
   assert.match(css, /\.trial-transport/);
 });
 
@@ -150,7 +155,14 @@ test("immersive entry automatically owns spatial audio without a separate settin
   assert.match(study, /void audioEngine\.dispose\(\);[\s\S]*?setAudioEnabled\(false\);[\s\S]*?xrPhaseRef\.current = "inline"/);
   assert.match(study, /audioEngine=\{audioEnabled \? audioEngine : undefined\}/);
   assert.doesNotMatch(study, /Enable spatial audio|Disable spatial audio|toggleSpatialAudio/);
-  assert.match(study, /enables scene-bound HRTF spatial audio/);
+  assert.match(study, /automatic spatial threat audio/);
+});
+
+test("a locally started browser preview runs the complete cue schedule without an audio setting", async () => {
+  const study = await readFile(new URL("components/StudyApp.tsx", root), "utf8");
+  assert.match(study, /const startPreview = useCallback\([\s\S]*?audioEngine\.enable\(\)[\s\S]*?setAudioEnabled\(true\)[\s\S]*?audioEngine\.update\(sceneRef\.current\)/);
+  assert.match(study, /Start preview runs the selected 2D or 3D renderer with the complete generated scene-audio schedule/);
+  assert.doesNotMatch(study, /Enable spatial audio|Disable spatial audio|toggleSpatialAudio/);
 });
 
 test("external human and retained spider reference assets are pinned and shipped locally", async () => {
@@ -242,6 +254,8 @@ test("first-read project memory and social preview are shipped", async () => {
   ]);
   assert.match(agents, /FOR_AI\/README\.md/);
   assert.match(memory, /Required reading order/);
+  assert.match(memory, /GitHub Pages is the sole deployment target/);
   assert.match(bibliography, /10\.1038\/s41598-020-79767-0/);
+  await assert.rejects(access(new URL(".openai/hosting.json", root)));
   await access(new URL("public/og.png", root));
 });

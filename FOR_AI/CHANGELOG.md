@@ -1,5 +1,12 @@
 # Project-memory changelog
 
+## 2026-08-29 — GitHub-only delivery and full browser preview
+
+- Made GitHub the sole source authority and GitHub Pages the sole current website target. Removed `.openai/hosting.json`; the existing private ChatGPT Sites publication is now a legacy snapshot and is not updated by this project workflow.
+- Replaced the small, buried browser-3D preview with a peer 2D/3D switch inside the large main trial stage. Both modes render the same authoritative snapshot and retain the same clock when switched.
+- Replaced the 2D-specific launch label with **Start preview**. That trusted local action automatically starts the complete generated HRTF cue schedule for either browser renderer, with no separate audio setting; reset/completion disposes the graph.
+- Kept immersive VR/MR controls separate because WebXR still requires a trusted headset action. Immersive entry continues to use the same cue schedule and XR-camera listener pose.
+
 ## 2026-08-29 — automatic immersive spatial audio
 
 - Clarified the preceding “silent immersive default” request: spatial threat sound is now the built-in VR/MR behavior, not a separate participant setting. The non-immersive page remains silent.

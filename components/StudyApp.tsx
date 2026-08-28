@@ -122,7 +122,7 @@ function Nav({ current, onNavigate }: { current: AppView; onNavigate(view: AppVi
         <span>Social Threat Lab <small>WebXR prototype</small></span>
       </button>
       <div className="nav-links">
-        <button type="button" aria-current={current === "trial" ? "page" : undefined} onClick={() => onNavigate("trial")}>2D trial</button>
+        <button type="button" aria-current={current === "trial" ? "page" : undefined} onClick={() => onNavigate("trial")}>Live preview</button>
         <button type="button" aria-current={current === "companion" ? "page" : undefined} onClick={() => onNavigate("companion")}>Companion view</button>
       </div>
     </nav>
@@ -143,7 +143,7 @@ export default function StudyApp() {
   const [audioEngine] = useState(() => new SpatialAudioEngine());
   const [xrActive, setXrActive] = useState(false);
   const [xrEngineReady, setXrEngineReady] = useState(false);
-  const [showXrPreview, setShowXrPreview] = useState(false);
+  const [previewMode, setPreviewMode] = useState<"2d" | "3d">("2d");
   const [xrStatus, setXrStatus] = useState("Preparing the optional 3D engine…");
   const [xrSupport, setXrSupport] = useState({ vr: false, ar: false, checked: false });
   const [xrPhase, setXrPhase] = useState<XrRuntimePhase>("inline");
@@ -342,10 +342,14 @@ export default function StudyApp() {
   }, [appendLog, audioEngine]);
 
   const resetScenario = useCallback((source: LogRow["source"] = "local") => {
+    if (!xrActiveRef.current) {
+      void audioEngine.dispose();
+      setAudioEnabled(false);
+    }
     runtimeRef.current = { elapsedMs: 0, running: false, paused: false, lastFrameAt: performance.now(), lastCommandId: runtimeRef.current.lastCommandId };
     const next = rebuildScene();
     appendLog("scenario_reset", source, next);
-  }, [appendLog, rebuildScene]);
+  }, [appendLog, audioEngine, rebuildScene]);
 
   const pauseScenario = useCallback((source: LogRow["source"] = "local") => {
     if (!runtimeRef.current.running) return;
@@ -540,6 +544,10 @@ export default function StudyApp() {
       const next = evaluateScenario(configRef.current, runtime.elapsedMs, sessionIdRef.current, runtime);
       sceneRef.current = next;
       setScene(next);
+      if (!xrActiveRef.current && isScenarioComplete(next) && !configRef.current.loop && audioEngine.enabled) {
+        void audioEngine.dispose();
+        setAudioEnabled(false);
+      }
     } else if (runtime.running && isScenarioComplete(sceneRef.current) && configRef.current.loop) {
       runtime.elapsedMs = 0;
       appendLog("scenario_loop", "local", sceneRef.current);
@@ -547,7 +555,7 @@ export default function StudyApp() {
       sceneRef.current = next;
       setScene(next);
     }
-  }, [appendLog, bumpHostRevision]);
+  }, [appendLog, audioEngine, bumpHostRevision]);
 
   useEffect(() => {
     let animationId = 0;
@@ -607,12 +615,22 @@ export default function StudyApp() {
     return () => window.clearTimeout(timer);
   }, [headsetHost, startBroadcast]);
 
-  const start2D = useCallback(() => {
+  const startPreview = useCallback(() => {
+    setXrStatus(`Browser ${previewMode.toUpperCase()} preview running; starting the complete scene audio…`);
+    void audioEngine.enable()
+      .then(() => {
+        setAudioEnabled(true);
+        audioEngine.update(sceneRef.current);
+        setXrStatus(`Browser ${previewMode.toUpperCase()} preview running with the complete spatial cue schedule.`);
+      })
+      .catch((error: unknown) => {
+        setAudioEnabled(false);
+        setXrStatus(`Browser preview is running, but audio is unavailable: ${error instanceof Error ? error.message : String(error)}`);
+      });
     void startBroadcast();
     if (runtimeRef.current.running && runtimeRef.current.paused && !isScenarioComplete(sceneRef.current)) pauseScenario("trial");
     else startScenario("trial");
-    setXrStatus("2D trial running. Use Continue in immersive 3D at any time.");
-  }, [pauseScenario, startBroadcast, startScenario]);
+  }, [audioEngine, pauseScenario, previewMode, startBroadcast, startScenario]);
 
   const enterImmersive = useCallback(async (mode: SceneMode, requestId?: string) => {
     if (requestId) {
@@ -661,7 +679,7 @@ export default function StudyApp() {
       const nextConfig = { ...configRef.current, mode };
       configRef.current = nextConfig;
       setConfig(nextConfig);
-      setShowXrPreview(true);
+      setPreviewMode("3d");
       if (!runtimeRef.current.running || isScenarioComplete(sceneRef.current)) startScenario(requestId ? "companion" : "trial");
       else if (runtimeRef.current.paused) pauseScenario(requestId ? "companion" : "trial");
       setXrStatus(audio.enabled
@@ -738,10 +756,10 @@ export default function StudyApp() {
 
   const supportLabel = useMemo(() => {
     if (!xrSupport.checked) return "Checking immersive support…";
-    if (!xrSupport.vr && !xrSupport.ar) return "2D trial ready · immersive XR unavailable here";
+    if (!xrSupport.vr && !xrSupport.ar) return "3D browser preview ready · immersive XR unavailable here";
     return `${xrSupport.vr ? "VR ready" : "VR unavailable"} · ${xrSupport.ar ? "MR ready" : "MR unavailable"}`;
   }, [xrSupport]);
-  const shouldMountXr = showXrPreview || xrSupport.vr || xrSupport.ar;
+  const shouldMountXr = previewMode === "3d" || xrSupport.vr || xrSupport.ar;
 
   const handleSessionChange = useCallback((active: boolean, mode?: SceneMode) => {
     xrActiveRef.current = active;
@@ -807,10 +825,10 @@ export default function StudyApp() {
             <h1>Run the social encounter<br />on any screen.</h1>
             <p className="hero-lede">
               A front-facing crowd of twelve game-like or human avatars wanders in six dyads, exchanges gaze, and trades friendly spatial tones. A distant threat approaches and becomes more visible;
-              alarm spreads unevenly through the group before they avoid it. Run the complete 2D trial on a phone or browser, with optional spatial audio, VR, and passthrough MR.
+              alarm spreads unevenly through the group before they avoid it. Run the complete 2D or 3D browser preview with its generated spatial cues, or continue into VR and passthrough MR.
             </p>
             <div className="hero-actions">
-              <button className="button primary" type="button" onClick={() => navigate("trial")}>Start the 2D trial <span>→</span></button>
+              <button className="button primary" type="button" onClick={() => navigate("trial")}>Open the live preview <span>→</span></button>
               <button className="button ghost" type="button" onClick={() => navigate("companion")}>Open top-down companion</button>
             </div>
             <dl className="hero-facts">
@@ -837,8 +855,8 @@ export default function StudyApp() {
       {view === "trial" && (
         <section className="workspace-shell">
           <header className="workspace-heading">
-            <div><p className="eyebrow"><span /> {headsetHost ? "Dedicated headset host" : "Phone-ready 2D scene"}</p><h1>Run the encounter</h1></div>
-            <div className="support-chip"><span className="live-dot" />{headsetHost ? `Operator link ${broadcastPhase}` : "2D ready on this device · XR optional"}</div>
+            <div><p className="eyebrow"><span /> {headsetHost ? "Dedicated headset host" : "2D / 3D browser preview"}</p><h1>Run the encounter</h1></div>
+            <div className="support-chip"><span className="live-dot" />{headsetHost ? `Operator link ${broadcastPhase}` : "Browser preview ready · immersive XR optional"}</div>
           </header>
 
           {pendingXrRequest && xrPhase === "awaiting-local-confirmation" && (
@@ -858,7 +876,28 @@ export default function StudyApp() {
           <div className="trial-layout">
             <div className="trial-stage">
               <section className="scene-panel participant-panel">
-                <ParticipantScene2D snapshot={scene} />
+                <div className="scene-view-switch" role="group" aria-label="Browser preview mode">
+                  <button type="button" disabled={xrActive} aria-pressed={previewMode === "2d"} onClick={() => setPreviewMode("2d")}>2D view</button>
+                  <button type="button" disabled={xrActive} aria-pressed={previewMode === "3d"} onClick={() => setPreviewMode("3d")}>3D view</button>
+                </div>
+                {previewMode === "2d" && <ParticipantScene2D snapshot={scene} />}
+                <div className={previewMode === "3d" ? "browser-xr-view" : "xr-prewarm"} aria-hidden={previewMode !== "3d"}>
+                  {shouldMountXr && (
+                    <Suspense fallback={<div className="scene-loading" role="status">Preparing 3D scene…</div>}>
+                      <XrScene
+                        ref={xrRef}
+                        snapshot={scene}
+                        audioEngine={audioEnabled ? audioEngine : undefined}
+                        onFrame={advanceScenarioFrame}
+                        onReady={handleXrReady}
+                        onStartRequest={handleXrStart}
+                        onPauseRequest={handleXrPause}
+                        onSessionChange={handleSessionChange}
+                        onStatus={handleXrStatus}
+                      />
+                    </Suspense>
+                  )}
+                </div>
                 <div className="scene-overlay top-left" aria-live="polite">
                   <span className={`status-dot ${scene.paused ? "paused" : scene.running ? "active" : ""}`} />
                   <strong>{phaseLabel(scene.phase)}</strong>
@@ -871,20 +910,20 @@ export default function StudyApp() {
 
               <section className="trial-control-dock" aria-label="Trial controls">
                 <div className="trial-launch-grid">
-                  <button className="button primary" type="button" onClick={start2D}>{scene.paused ? "Resume 2D" : scene.phase === "complete" ? "Run 2D again" : scene.running ? "Restart 2D" : "Start 2D"}</button>
+                  <button className="button primary" type="button" onClick={startPreview}>{scene.paused ? "Resume preview" : scene.phase === "complete" ? "Run preview again" : scene.running ? "Restart preview" : "Start preview"}</button>
                   <button className="button xr-start" type="button" disabled={!xrSupport.vr || !xrEngineReady || xrActive || Boolean(pendingXrRequest)} onClick={() => void enterImmersive("virtual")}>{scene.running && !isScenarioComplete(scene) ? "Continue in immersive 3D" : "Start immersive 3D"}</button>
                 </div>
                 <div className="trial-transport">
                   <button className="button danger" type="button" disabled={!scene.running || isScenarioComplete(scene)} onClick={() => pauseScenario("trial")}>{scene.paused ? "Resume" : "Pause"}</button>
                   <button className="button ghost" type="button" onClick={() => resetScenario("trial")}>Reset</button>
                 </div>
-                <p className="trial-start-note">Contains an approaching threat and spatial sound. Start at low volume; either view can be stopped at any time.</p>
+                <p className="trial-start-note" aria-live="polite">{audioEnabled ? `Scene audio active · ${previewMode.toUpperCase()} browser view · complete generated cue schedule` : "Start preview runs the selected 2D or 3D renderer with the complete generated scene-audio schedule. Begin at low device volume."}</p>
               </section>
             </div>
 
             <aside className="control-stack">
               <section className="control-card">
-                <div className="card-heading"><div><span>01</span><h2>2D stimulus</h2></div><small>Configure before starting</small></div>
+                <div className="card-heading"><div><span>01</span><h2>Scenario setup</h2></div><small>Configure before starting</small></div>
                 <div className="field-grid">
                   <label>Threat
                     <select value={config.threatKind} disabled={xrActive || (scene.running && !isScenarioComplete(scene))} onChange={(event) => updateConfig("threatKind", event.target.value as ThreatKind)}>
@@ -905,7 +944,7 @@ export default function StudyApp() {
                       <option value="standard">Standard · 12 s approach</option>
                     </select>
                   </label>
-                  <label>2D background
+                  <label>Preview environment
                     <select value={config.mode} disabled={xrActive} onChange={(event) => updateConfig("mode", event.target.value as SceneMode)}>
                       <option value="virtual">Dusk forest clearing</option>
                       <option value="passthrough">Neutral study grid</option>
@@ -917,26 +956,8 @@ export default function StudyApp() {
               </section>
 
               <section className="control-card xr-addon-card">
-                <div className="card-heading"><div><span>02</span><h2>Optional 3D / WebXR</h2></div><small>{xrActive ? `${activeXrMode === "passthrough" ? "MR" : "VR"} active` : xrPhase === "awaiting-local-confirmation" ? "Awaiting confirmation" : supportLabel}</small></div>
-                <p className="addon-copy">The 3D engine prepares automatically. Starting immersive mode directly enters VR, starts or continues the same trial clock, and enables scene-bound HRTF spatial audio. The audio graph closes when immersion ends, so the page does not leave background sound running.</p>
-                <div className={showXrPreview ? "mini-xr-preview" : "xr-prewarm"} aria-hidden={!showXrPreview}>
-                  {shouldMountXr && (
-                    <Suspense fallback={<div className="scene-loading" role="status">Preparing 3D scene…</div>}>
-                      <XrScene
-                        ref={xrRef}
-                        snapshot={scene}
-                        audioEngine={audioEnabled ? audioEngine : undefined}
-                        onFrame={advanceScenarioFrame}
-                        onReady={handleXrReady}
-                        onStartRequest={handleXrStart}
-                        onPauseRequest={handleXrPause}
-                        onSessionChange={handleSessionChange}
-                        onStatus={handleXrStatus}
-                      />
-                    </Suspense>
-                  )}
-                </div>
-                <button className="button link-button" type="button" aria-expanded={showXrPreview} disabled={xrActive} onClick={() => setShowXrPreview((current) => !current)}>{showXrPreview ? "Hide browser 3D preview" : "Show browser 3D preview"}</button>
+                <div className="card-heading"><div><span>02</span><h2>Immersive VR / MR</h2></div><small>{xrActive ? `${activeXrMode === "passthrough" ? "MR" : "VR"} active` : xrPhase === "awaiting-local-confirmation" ? "Awaiting confirmation" : supportLabel}</small></div>
+                <p className="addon-copy">Use the 3D tab above for the live browser renderer. Starting immersive mode enters VR/MR, continues the same trial clock, and keeps the same scene-bound HRTF cue schedule.</p>
                 <div className="immersive-buttons">
                   <button className="button xr" type="button" disabled={!xrSupport.vr || !xrEngineReady || xrActive || Boolean(pendingXrRequest)} onClick={() => void enterImmersive("virtual")}><span>VR</span> {scene.running && !isScenarioComplete(scene) ? "Continue in VR" : "Start in VR"}</button>
                   <button className="button xr" type="button" disabled={!xrSupport.ar || !xrEngineReady || xrActive || Boolean(pendingXrRequest)} onClick={() => void enterImmersive("passthrough")}><span>MR</span> {scene.running && !isScenarioComplete(scene) ? "Continue in passthrough" : "Start in passthrough"}</button>
@@ -945,14 +966,14 @@ export default function StudyApp() {
               </section>
 
               <section className="control-card link-card">
-                <div className="card-heading"><div><span>04</span><h2>Companion link</h2></div><small className={broadcastPhase === "broadcasting" ? "online" : ""}>{connectionReadout}</small></div>
+                <div className="card-heading"><div><span>03</span><h2>Companion link</h2></div><small className={broadcastPhase === "broadcasting" ? "online" : ""}>{connectionReadout}</small></div>
                 {broadcastPhase !== "broadcasting" ? (
                   <button className="button link-button" type="button" onClick={() => void startBroadcast()}>Start companion link now</button>
                 ) : (
                   <button className="button ghost" type="button" onClick={() => void broadcasterRef.current?.stop()}>Stop broadcast</button>
                 )}
                 <a className="button link-button companion-open" href="?view=companion" target="_blank" rel="noreferrer">Open companion in another browser</a>
-                <p className="status-line">The data link starts automatically with Start 2D or Start immersive 3D; the companion begins discovery when opened.</p>
+                <p className="status-line">The data link starts automatically with Start preview or Start immersive 3D; the companion begins discovery when opened.</p>
                 <p className="microcopy">Data only: scenario phase, agent/threat positions, and allowlisted control commands. No microphone, camera, participant name, or device pose.</p>
               </section>
 
