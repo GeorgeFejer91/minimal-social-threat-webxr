@@ -1,5 +1,11 @@
 # Project-memory changelog
 
+## 2026-08-28 — immersive controller start
+
+- Removed the visible 1.8 m boundary ring and dark instructional warning billboard from the immersive renderer while retaining the authoritative 1.8 m approach constraint.
+- Changed immersive entry to stage an idle trial instead of starting immediately.
+- Bound an edge-triggered right-controller A-button press to start or resume the VR trial; either controller trigger remains pause-only.
+
 ## 2026-08-28 — schema v2 social scenario
 
 - Created the mandatory first-read `FOR_AI` memory and root `AGENTS.md` router.

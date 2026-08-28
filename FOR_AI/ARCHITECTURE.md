@@ -21,7 +21,7 @@ deterministic scenario evaluator
 - **Stimulus plane:** `lib/scenario.ts` returns schema-v2 snapshots from configuration, elapsed time, and session state.
 - **Visual plane:** `ParticipantScene2D.tsx`, `XrScene.tsx`, and `TopdownScene.tsx` render only snapshot fields.
 - **Audio plane:** `lib/spatial-audio.ts` consumes snapshot audio cues, creates HRTF panners at authoritative source positions, and updates the listener from the XR camera during immersion.
-- **Control plane:** `StudyApp.tsx` owns start/pause/reset/configuration, the local clock, content acknowledgement, audio opt-in, bounded logging, and application of companion commands.
+- **Control plane:** `StudyApp.tsx` owns start/pause/reset/configuration, the local clock, content acknowledgement, audio opt-in, bounded logging, and application of companion commands. In immersive WebXR, entry stages an idle scene; the right controller's A button starts or resumes, while either trigger pauses.
 - **Transport plane:** `lib/scene-sync.ts` carries schema-v2 state and a small command allowlist via the vendored VDO.Ninja SDK.
 
 ## Scenario sequence
@@ -33,6 +33,8 @@ deterministic scenario evaluator
 | Approach | 11–23 s | 11–29 s | Threat looms; agents startle and take varied avoidance paths. |
 | Hold | 23–27 s | 29–33 s | Threat remains at 1.8 m; agents freeze at displaced positions. |
 | Complete | 27 s onward | 33 s onward | Trial can reset or loop. |
+
+The 1.8 m threat constraint is authoritative but intentionally invisible in the immersive renderer: VR contains neither a boundary ring nor an instructional warning billboard.
 
 ## Synchronization contract
 
@@ -58,4 +60,3 @@ deterministic scenario evaluator
 - Recorded speech can replace synthesis while preserving cue IDs, timing, text, and source coordinates.
 - An institution-operated authenticated signaling adapter can replace the public VDO.Ninja discovery boundary.
 - Conditions can be added only by extending the versioned configuration and updating transport validation, logs, tests, and this folder together.
-

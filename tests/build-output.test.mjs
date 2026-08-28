@@ -65,6 +65,19 @@ test("2D trial is the primary playable scene and WebXR remains lazy and optional
   assert.match(css, /\.trial-transport/);
 });
 
+test("immersive VR starts from the right-controller A button without in-scene limit markers", async () => {
+  const [studyApp, xrScene] = await Promise.all([
+    readFile(new URL("components/StudyApp.tsx", root), "utf8"),
+    readFile(new URL("components/XrScene.tsx", root), "utf8"),
+  ]);
+  assert.match(xrScene, /source\.handedness === "right"/);
+  assert.match(xrScene, /gamepad\?\.buttons\[4\]\?\.pressed/);
+  assert.match(xrScene, /onStartRequest/);
+  assert.match(studyApp, /onStartRequest=\{handleXrStart\}/);
+  assert.match(studyApp, /resetScenario\("trial"\)/);
+  assert.doesNotMatch(xrScene, /RingGeometry|informationTexture|marked limit/);
+});
+
 test("GitHub Pages assets are flattened to the project root when a prefix is configured", async () => {
   if (!process.env.PAGES_BASE_PATH) return;
   const prefixName = process.env.PAGES_BASE_PATH.replace(/^\//, "");

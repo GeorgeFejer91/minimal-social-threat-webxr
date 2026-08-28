@@ -14,6 +14,7 @@ export interface XrSceneHandle {
 interface XrSceneProps {
   snapshot: SceneSnapshot;
   audioEngine?: SpatialAudioEngine;
+  onStartRequest(): void;
   onPauseRequest(): void;
   onSessionChange(active: boolean, mode?: SceneMode): void;
   onStatus(message: string): void;
@@ -62,25 +63,6 @@ function faceTexture(expression: Expression | "angry", color: string, threatKind
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.needsUpdate = true;
-  return texture;
-}
-
-function informationTexture() {
-  const canvas = document.createElement("canvas");
-  canvas.width = 768;
-  canvas.height = 160;
-  const context = canvas.getContext("2d")!;
-  context.fillStyle = "rgba(5, 20, 16, .78)";
-  context.beginPath(); context.roundRect(4, 4, 760, 152, 30); context.fill();
-  context.fillStyle = "#eefbf4";
-  context.font = "700 38px system-ui";
-  context.textAlign = "center";
-  context.fillText("Either controller trigger pauses", 384, 70);
-  context.fillStyle = "#b4d4c5";
-  context.font = "500 28px system-ui";
-  context.fillText("Use headphones · threat stops at the marked limit", 384, 116);
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
   return texture;
 }
 
@@ -199,11 +181,12 @@ function makeThreat() {
 }
 
 const XrScene = forwardRef<XrSceneHandle, XrSceneProps>(function XrScene(
-  { snapshot, audioEngine, onPauseRequest, onSessionChange, onStatus },
+  { snapshot, audioEngine, onStartRequest, onPauseRequest, onSessionChange, onStatus },
   ref,
 ) {
   const hostRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef(snapshot);
+  const startRef = useRef(onStartRequest);
   const pauseRef = useRef(onPauseRequest);
   const audioRef = useRef(audioEngine);
   const rendererRef = useRef<THREE.WebGLRenderer | undefined>(undefined);
@@ -217,6 +200,7 @@ const XrScene = forwardRef<XrSceneHandle, XrSceneProps>(function XrScene(
   const textureCache = useRef(new Map<string, THREE.Texture>());
 
   useEffect(() => { stateRef.current = snapshot; }, [snapshot]);
+  useEffect(() => { startRef.current = onStartRequest; }, [onStartRequest]);
   useEffect(() => { pauseRef.current = onPauseRequest; }, [onPauseRequest]);
   useEffect(() => { audioRef.current = audioEngine; }, [audioEngine]);
 
@@ -299,13 +283,6 @@ const XrScene = forwardRef<XrSceneHandle, XrSceneProps>(function XrScene(
     floor.rotation.x = -Math.PI / 2;
     floor.position.y = -0.02;
     environment.add(floor);
-    const ring = new THREE.Mesh(
-      new THREE.RingGeometry(1.78, 1.83, 64),
-      new THREE.MeshBasicMaterial({ color: 0xf3b563, transparent: true, opacity: 0.7, side: THREE.DoubleSide }),
-    );
-    ring.rotation.x = -Math.PI / 2;
-    ring.position.y = 0.006;
-    scene.add(ring);
     for (let index = 0; index < 18; index += 1) {
       const angle = (index / 18) * Math.PI * 2;
       const radius = 7.5 + (index % 3) * 0.8;
@@ -320,11 +297,6 @@ const XrScene = forwardRef<XrSceneHandle, XrSceneProps>(function XrScene(
     }
     scene.add(environment);
     environmentRef.current = environment;
-
-    const sign = new THREE.Sprite(new THREE.SpriteMaterial({ map: informationTexture(), transparent: true, depthWrite: false }));
-    sign.position.set(0, 2.55, -2.65);
-    sign.scale.set(3.6, 0.75, 1);
-    scene.add(sign);
 
     const colors = ["#5eae92", "#6ba7c7", "#b48ac6", "#d1a66f", "#75b87c", "#cf7985"];
     for (let index = 0; index < stateRef.current.agents.length; index += 1) {
@@ -348,7 +320,7 @@ const XrScene = forwardRef<XrSceneHandle, XrSceneProps>(function XrScene(
       controls.enabled = false;
       camera.position.set(0, 0, 0);
       onSessionChange(true, activeModeRef.current);
-      onStatus("Immersive scene active. Pull either trigger to pause.");
+      onStatus("Immersive scene ready. Press A on the right controller to start; either trigger pauses.");
     });
     renderer.xr.addEventListener("sessionend", () => {
       camera.position.set(0, 3.3, 6.8);
@@ -375,9 +347,19 @@ const XrScene = forwardRef<XrSceneHandle, XrSceneProps>(function XrScene(
     const listenerQuaternion = new THREE.Quaternion();
     const listenerForward = new THREE.Vector3();
     const listenerUp = new THREE.Vector3();
+    let rightAWasPressed = false;
 
     renderer.setAnimationLoop((time) => {
       const state = stateRef.current;
+      if (renderer.xr.isPresenting) {
+        const rightController = Array.from(renderer.xr.getSession()?.inputSources ?? [])
+          .find((source) => source.handedness === "right" && source.gamepad);
+        const rightAIsPressed = Boolean(rightController?.gamepad?.buttons[4]?.pressed);
+        if (rightAIsPressed && !rightAWasPressed) startRef.current();
+        rightAWasPressed = rightAIsPressed;
+      } else {
+        rightAWasPressed = false;
+      }
       for (const agentState of state.agents) {
         const agent = agentRefs.current.get(agentState.id);
         if (!agent) continue;

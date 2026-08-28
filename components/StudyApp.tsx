@@ -360,7 +360,7 @@ export default function StudyApp() {
     try {
       await xrRef.current?.enter(mode);
       updateConfig("mode", mode);
-      startScenario("trial");
+      resetScenario("trial");
     } catch (error) {
       setXrStatus(error instanceof Error ? error.message : String(error));
     }
@@ -421,6 +421,14 @@ export default function StudyApp() {
 
   const handleSessionChange = useCallback((active: boolean) => setXrActive(active), []);
   const handleXrStatus = useCallback((message: string) => setXrStatus(message), []);
+  const handleXrStart = useCallback(() => {
+    if (!runtimeRef.current.running || isScenarioComplete(sceneRef.current)) {
+      startScenario("trial");
+      setXrStatus("Scenario started with the right-controller A button.");
+    } else if (runtimeRef.current.paused) {
+      pauseScenario("trial");
+    }
+  }, [pauseScenario, startScenario]);
   const handleXrPause = useCallback(() => {
     if (runtimeRef.current.running && !runtimeRef.current.paused) pauseScenario("trial");
   }, [pauseScenario]);
@@ -542,6 +550,7 @@ export default function StudyApp() {
                           ref={xrRef}
                           snapshot={scene}
                           audioEngine={audioEngine}
+                          onStartRequest={handleXrStart}
                           onPauseRequest={handleXrPause}
                           onSessionChange={handleSessionChange}
                           onStatus={handleXrStatus}

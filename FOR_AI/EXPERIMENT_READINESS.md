@@ -23,7 +23,7 @@
 6. Validate 2D phone and immersive XR presentations separately.
 7. Test localization, front/back confusions, distance perception, audio/visual co-location, and the effect of non-individual HRTFs.
 8. Measure presence, discomfort, simulator sickness, startle burden, hearing sensitivity, and participant stop behavior.
-9. Verify WebXR entry/exit, passthrough, controller pause, companion controls, network loss/stale recovery, logging, and the 1.8 m limit on each physical device/browser version.
+9. Verify WebXR entry/exit, passthrough, right-controller A-button start/resume, trigger pause, companion controls, network loss/stale recovery, logging, and the invisible 1.8 m model limit on each physical device/browser version.
 10. Freeze stimulus version, code revision, cue parameters, recordings, device configuration, random seed policy, preregistration, and analysis plan before collection.
 
 ## Claims that must not be made yet
@@ -43,4 +43,3 @@
 - Agent gaze target, talking/listening roles, group cohesion, and naturalness.
 - Audio direction, co-location, roughness, unpleasantness, and loudness.
 - Presence, discomfort, cybersickness, and willingness to continue.
-
