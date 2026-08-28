@@ -50,6 +50,12 @@ The patched source commit `3825279` was then tested from `https://georgefejer91.
 
 This evidence establishes implementation behavior only for the recorded device/browser/source combination. Passthrough MR, controller mappings, network-loss recovery, prolonged soak, physical-boundary safety, construct validity, emotional effect, comfort, acoustic calibration, and participant readiness remain unverified.
 
+## Automatic immersive-audio evidence recorded 2026-08-29
+
+Public source `959bf88` was opened on the same Quest 3 / Quest Browser 149 through the cache-busted dedicated headset route. The page exposed no audio toggle. One trusted headset-side **Start immersive 3D** action entered VR and reported “automatic spatial threat audio”; fresh Android audio-service readback identified a started Quest Browser media player during that immersive session. Navigating out of immersion removed the browser player. A separate Meta VR Shell/Home game-audio player resumed after exit, confirming that the continuous Home ambience is outside the threat-lab page.
+
+This is bounded lifecycle evidence only: it shows that automatic browser audio starts and stops with the observed VR session. It does not establish HRTF perceptual accuracy, channel rendering, loudness/SPL, audiovisual co-location, comfort, construct validity, MR behavior, or participant readiness. No headset-wide audio or volume setting was changed, and the run-owned debugging forward was removed afterward.
+
 ## Claims that must not be made yet
 
 - “Scientifically validated threat stimulus.” A methods-derived reconstruction and a PPS Kit-derived localization layer do not transfer validation to this combined scenario.

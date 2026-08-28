@@ -5,7 +5,7 @@
 - Clarified the preceding “silent immersive default” request: spatial threat sound is now the built-in VR/MR behavior, not a separate participant setting. The non-immersive page remains silent.
 - Removed the spatial-audio toggle. The trusted local immersive action dispatches the WebXR request first and Web Audio startup second before awaiting either, preserving both activation boundaries; a remotely staged request still requires local headset confirmation.
 - Attached HRTF listener updates only during the immersive session and dispose the audio graph on entry failure or session exit so the application cannot leave background audio running afterward.
-- The live Android audio-service diagnosis remains valid: the continuous post-exit stream belonged to Meta VR Shell/Home, not Quest Browser. Automatic-audio headset acceptance for this new revision is still required before experimental use.
+- Verified public source `959bf88` on Quest 3 / Quest Browser 149: trusted local VR entry reported automatic spatial threat audio and produced one started Quest Browser media player; navigating out of immersion removed that browser player, after which the distinct Meta VR Shell/Home game-audio player resumed. This establishes app audio lifecycle behavior, not perceptual quality, calibration, comfort, or study validity.
 
 ## 2026-08-29 — mandatory live website delivery
 
