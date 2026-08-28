@@ -443,7 +443,7 @@ export default function StudyApp() {
             <p className="eyebrow"><span /> Minimal social-agent study kit</p>
             <h1>Run the social encounter<br />on any screen.</h1>
             <p className="hero-lede">
-              Six game-like agents wander, form conversations, exchange gaze, and surround an observer. A shrouded shadow approaches;
+              A front-facing crowd of twelve game-like agents wanders in six dyads, exchanges gaze, and trades friendly spatial tones. A distant, initially invisible shadow approaches and becomes more visible;
               alarm spreads unevenly through the group before they avoid it. Run the complete 2D trial on a phone or browser, with optional spatial audio, VR, and passthrough MR.
             </p>
             <div className="hero-actions">
@@ -452,15 +452,15 @@ export default function StudyApp() {
             </div>
             <dl className="hero-facts">
               <div><dt>2D</dt><dd>phone first</dd></div>
-                <div><dt>3</dt><dd>social dyads</dd></div>
+              <div><dt>6</dt><dd>social dyads</dd></div>
               <div><dt>1.8 m</dt><dd>hard threat limit</dd></div>
             </dl>
           </div>
-          <div className="hero-diagram" aria-label="Diagram showing a viewer surrounded by agents while a threat approaches">
+          <div className="hero-diagram" aria-label="Diagram showing a crowd of twelve agents in front of a viewer while a distant threat approaches">
             <div className="radar-ring ring-a" />
             <div className="radar-ring ring-b" />
             <div className="hero-viewer">YOU</div>
-            {["a", "b", "c", "d", "e", "f"].map((name, index) => <div key={name} className={`hero-agent agent-${name}`}>{index < 2 ? "!" : "•"}</div>)}
+            {["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"].map((name) => <div key={name} className={`hero-agent agent-${name}`}>•</div>)}
             <div className="hero-threat"><span>⌁</span><small>THREAT</small></div>
             <div className="approach-line" />
           </div>
@@ -531,10 +531,10 @@ export default function StudyApp() {
 
               <section className="control-card audio-card">
                 <div className="card-heading"><div><span>02</span><h2>Spatial sound</h2></div><small className={audioEnabled ? "online" : ""}>{audioEnabled ? "HRTF on" : "Off"}</small></div>
-                <p className="addon-copy">Agent vocal cues and the approaching shadow are rendered from their scene positions. The threat uses a reproducible 70 Hz roughness modulation; it is not a calibrated clinical stimulus.</p>
+                <p className="addon-copy">Dyads exchange short, consonant/harmonic friendly-tone prototypes from their scene positions. The approaching shadow uses a reproducible 70 Hz roughness modulation; neither cue is a calibrated clinical stimulus.</p>
                 <button className={`button ${audioEnabled ? "ghost" : "link-button"}`} type="button" onClick={() => void toggleSpatialAudio()}>{audioEnabled ? "Disable spatial audio" : "Enable spatial audio"}</button>
                 <p className="status-line" role="status">{audioStatus}</p>
-                <p className="microcopy">Use headphones, begin at low volume, and measure the actual output level before participant use. Captions carry the dialogue semantics; the current generated voices are non-lexical prototypes.</p>
+                <p className="microcopy">Use headphones, begin at low volume, and measure the actual output level before participant use. The friendly-tone mapping is study-motivated but not universal; pilot it in the target population.</p>
               </section>
 
               <section className="control-card xr-addon-card">
@@ -660,7 +660,7 @@ export default function StudyApp() {
         </section>
       )}
 
-      <footer><span>Social Threat Lab · schema v2</span><span>Social dyads · HRTF audio · optional WebXR · VDO.Ninja SDK 1.5.5</span></footer>
+      <footer><span>Social Threat Lab · schema v3</span><span>Six social dyads · HRTF audio · optional WebXR · VDO.Ninja SDK 1.5.5</span></footer>
     </main>
   );
 }

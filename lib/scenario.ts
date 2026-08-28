@@ -1,4 +1,4 @@
-export const SCENE_SCHEMA_VERSION = 2 as const;
+export const SCENE_SCHEMA_VERSION = 3 as const;
 
 export type ThreatKind = "shadow" | "angry-agent";
 export type Intensity = "gentle" | "standard";
@@ -6,7 +6,7 @@ export type SceneMode = "virtual" | "passthrough";
 export type Expression = "calm" | "alert" | "afraid" | "angry";
 export type AgentBehavior = "idle" | "meander" | "talk" | "listen" | "orient" | "startle" | "flee" | "freeze";
 export type ScenarioPhase = "ready" | "baseline" | "detected" | "approach" | "hold" | "complete";
-export type AudioCueKind = "murmur" | "acknowledge" | "warning" | "gasp" | "roughness";
+export type AudioCueKind = "friendly" | "murmur" | "acknowledge" | "warning" | "gasp" | "roughness";
 
 export interface ScenarioConfig {
   threatKind: ThreatKind;
@@ -37,6 +37,7 @@ export interface ThreatState {
   yaw: number;
   expression: "angry";
   distance: number;
+  visibility: number;
 }
 
 export interface AudioCue {
@@ -85,31 +86,44 @@ interface AgentDefinition {
 }
 
 const BASE_AGENTS: readonly AgentDefinition[] = [
-  { id: "agent-a", x: -2.70, z: -1.45, partnerId: "agent-b", pair: 0, seed: 0.35, detectionDelay: 0.05 },
-  { id: "agent-b", x: -1.15, z: -2.75, partnerId: "agent-a", pair: 0, seed: 1.70, detectionDelay: 1.55 },
-  { id: "agent-c", x: 2.55, z: -1.60, partnerId: "agent-d", pair: 1, seed: 2.85, detectionDelay: 0.55 },
-  { id: "agent-d", x: 2.85, z: 0.15, partnerId: "agent-c", pair: 1, seed: 4.10, detectionDelay: 1.95 },
-  { id: "agent-e", x: 1.10, z: 2.85, partnerId: "agent-f", pair: 2, seed: 5.20, detectionDelay: 1.05 },
-  { id: "agent-f", x: -1.25, z: 2.80, partnerId: "agent-e", pair: 2, seed: 6.35, detectionDelay: 2.35 },
+  { id: "agent-a", x: -3.80, z: -2.50, partnerId: "agent-b", pair: 0, seed: 0.35, detectionDelay: 0.05 },
+  { id: "agent-b", x: -2.60, z: -2.80, partnerId: "agent-a", pair: 0, seed: 1.70, detectionDelay: 1.30 },
+  { id: "agent-c", x: 2.55, z: -2.75, partnerId: "agent-d", pair: 1, seed: 2.85, detectionDelay: 0.42 },
+  { id: "agent-d", x: 3.80, z: -2.45, partnerId: "agent-c", pair: 1, seed: 4.10, detectionDelay: 1.62 },
+  { id: "agent-e", x: -2.30, z: -4.00, partnerId: "agent-f", pair: 2, seed: 5.20, detectionDelay: 0.80 },
+  { id: "agent-f", x: -0.90, z: -4.25, partnerId: "agent-e", pair: 2, seed: 6.35, detectionDelay: 2.00 },
+  { id: "agent-g", x: 0.90, z: -4.20, partnerId: "agent-h", pair: 3, seed: 7.15, detectionDelay: 1.10 },
+  { id: "agent-h", x: 2.30, z: -3.90, partnerId: "agent-g", pair: 3, seed: 8.20, detectionDelay: 2.28 },
+  { id: "agent-i", x: -3.40, z: -5.50, partnerId: "agent-j", pair: 4, seed: 9.30, detectionDelay: 1.45 },
+  { id: "agent-j", x: -2.00, z: -5.80, partnerId: "agent-i", pair: 4, seed: 10.45, detectionDelay: 2.55 },
+  { id: "agent-k", x: 2.00, z: -5.75, partnerId: "agent-l", pair: 5, seed: 11.30, detectionDelay: 1.75 },
+  { id: "agent-l", x: 3.40, z: -5.45, partnerId: "agent-k", pair: 5, seed: 12.55, detectionDelay: 2.75 },
 ] as const;
 
 const MINIMUM_THREAT_DISTANCE = 1.8;
-const THREAT_START_Z = -8.2;
+const THREAT_START_Z = -16;
 const BASELINE_END_SECONDS = 8;
 const APPROACH_START_SECONDS = 11;
 
 const CUE_EVENTS = [
-  { id: "chat-a-1", at: 700, duration: 1_050, sourceId: "agent-a", kind: "murmur", text: "How has your day been?", gain: 0.20 },
-  { id: "chat-b-1", at: 2_000, duration: 720, sourceId: "agent-b", kind: "acknowledge", text: "Mm-hm.", gain: 0.17 },
-  { id: "chat-c-1", at: 3_050, duration: 960, sourceId: "agent-c", kind: "murmur", text: "Did you see that earlier?", gain: 0.19 },
-  { id: "chat-d-1", at: 4_300, duration: 760, sourceId: "agent-d", kind: "acknowledge", text: "I did.", gain: 0.16 },
-  { id: "chat-e-1", at: 5_350, duration: 1_000, sourceId: "agent-e", kind: "murmur", text: "It is quiet here.", gain: 0.18 },
-  { id: "chat-f-1", at: 6_650, duration: 730, sourceId: "agent-f", kind: "acknowledge", text: "For now.", gain: 0.17 },
+  { id: "friendly-a", at: 350, duration: 520, sourceId: "agent-a", kind: "friendly", text: "Friendly tone → Agent B", gain: 0.15 },
+  { id: "friendly-b", at: 1_050, duration: 470, sourceId: "agent-b", kind: "friendly", text: "Friendly reply → Agent A", gain: 0.14 },
+  { id: "friendly-c", at: 1_650, duration: 520, sourceId: "agent-c", kind: "friendly", text: "Friendly tone → Agent D", gain: 0.16 },
+  { id: "friendly-d", at: 2_320, duration: 470, sourceId: "agent-d", kind: "friendly", text: "Friendly reply → Agent C", gain: 0.14 },
+  { id: "friendly-e", at: 2_920, duration: 520, sourceId: "agent-e", kind: "friendly", text: "Friendly tone → Agent F", gain: 0.15 },
+  { id: "friendly-f", at: 3_590, duration: 470, sourceId: "agent-f", kind: "friendly", text: "Friendly reply → Agent E", gain: 0.14 },
+  { id: "friendly-g", at: 4_180, duration: 520, sourceId: "agent-g", kind: "friendly", text: "Friendly tone → Agent H", gain: 0.16 },
+  { id: "friendly-h", at: 4_850, duration: 470, sourceId: "agent-h", kind: "friendly", text: "Friendly reply → Agent G", gain: 0.14 },
+  { id: "friendly-i", at: 5_440, duration: 520, sourceId: "agent-i", kind: "friendly", text: "Friendly tone → Agent J", gain: 0.15 },
+  { id: "friendly-j", at: 6_110, duration: 470, sourceId: "agent-j", kind: "friendly", text: "Friendly reply → Agent I", gain: 0.14 },
+  { id: "friendly-k", at: 6_700, duration: 520, sourceId: "agent-k", kind: "friendly", text: "Friendly tone → Agent L", gain: 0.16 },
+  { id: "friendly-l", at: 7_370, duration: 470, sourceId: "agent-l", kind: "friendly", text: "Friendly reply → Agent K", gain: 0.14 },
   { id: "alarm-a", at: 8_120, duration: 950, sourceId: "agent-a", kind: "warning", text: "Did you hear that?", gain: 0.36 },
-  { id: "alarm-c", at: 8_780, duration: 1_020, sourceId: "agent-c", kind: "warning", text: "Something is coming.", gain: 0.42 },
-  { id: "alarm-e", at: 9_430, duration: 720, sourceId: "agent-e", kind: "gasp", text: "Look!", gain: 0.44 },
-  { id: "alarm-b", at: 10_080, duration: 720, sourceId: "agent-b", kind: "warning", text: "Move!", gain: 0.48 },
-  { id: "alarm-f", at: 10_610, duration: 620, sourceId: "agent-f", kind: "warning", text: "Go!", gain: 0.50 },
+  { id: "alarm-c", at: 8_670, duration: 900, sourceId: "agent-c", kind: "warning", text: "Something is coming.", gain: 0.40 },
+  { id: "alarm-e", at: 9_220, duration: 690, sourceId: "agent-e", kind: "gasp", text: "Look!", gain: 0.42 },
+  { id: "alarm-g", at: 9_720, duration: 760, sourceId: "agent-g", kind: "warning", text: "Do you see it?", gain: 0.44 },
+  { id: "alarm-i", at: 10_180, duration: 690, sourceId: "agent-i", kind: "warning", text: "Move!", gain: 0.47 },
+  { id: "alarm-k", at: 10_620, duration: 620, sourceId: "agent-k", kind: "warning", text: "Go!", gain: 0.50 },
 ] as const satisfies ReadonlyArray<{
   id: string; at: number; duration: number; sourceId: string; kind: AudioCueKind; text: string; gain: number;
 }>;
@@ -167,6 +181,9 @@ export function evaluateScenario(
     : lerp(THREAT_START_Z, -MINIMUM_THREAT_DISTANCE, approach);
   const threatX = 0.18 * Math.sin(seconds * 0.77) * approach;
   const proximity = clamp((THREAT_START_Z - threatZ) / (THREAT_START_Z + MINIMUM_THREAT_DISTANCE));
+  const threatVisibility = config.threatKind === "shadow"
+    ? (phase === "approach" || phase === "hold" || phase === "complete" ? smoothstep(proximity) : 0)
+    : 1;
 
   const meandering = BASE_AGENTS.map((agent, index) => {
     const pairDrift = Math.sin(seconds * (0.23 + agent.pair * 0.025) + agent.pair * 1.7) * 0.07;
@@ -269,7 +286,8 @@ export function evaluateScenario(
   for (const agent of agents) agent.speaking = speakingIds.has(agent.id);
 
   const socialLinks: SocialLink[] = [];
-  for (const [leftIndex, rightIndex] of [[0, 1], [2, 3], [4, 5]] as const) {
+  for (let leftIndex = 0; leftIndex < agents.length; leftIndex += 2) {
+    const rightIndex = leftIndex + 1;
     const left = agents[leftIndex];
     const right = agents[rightIndex];
     if (!left.detectedThreat && !right.detectedThreat) socialLinks.push({ sourceId: left.id, targetId: right.id, kind: "conversation" });
@@ -299,6 +317,7 @@ export function evaluateScenario(
       yaw: 0,
       expression: "angry",
       distance: Math.hypot(threatX, threatZ),
+      visibility: threatVisibility,
     },
     minimumThreatDistance: MINIMUM_THREAT_DISTANCE,
     lastCommandId: options.lastCommandId,

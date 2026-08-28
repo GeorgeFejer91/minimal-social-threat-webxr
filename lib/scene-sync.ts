@@ -1,15 +1,15 @@
 import { SCENE_SCHEMA_VERSION, type Intensity, type SceneSnapshot, type ThreatKind } from "./scenario.ts";
 
-export const SCENE_SYNC_ROOM = "minimal_social_threat_v2";
-export const SCENE_SYNC_STREAM_PREFIX = "mst2_scene_";
-export const SCENE_SYNC_CHANNEL = "scenev2";
+export const SCENE_SYNC_ROOM = "minimal_social_threat_v3";
+export const SCENE_SYNC_STREAM_PREFIX = "mst3_scene_";
+export const SCENE_SYNC_CHANNEL = "scenev3";
 export const SCENE_SYNC_STALE_MS = 1_200;
 export const SCENE_SYNC_MAX_HZ = 20;
 
 const MIN_SEND_INTERVAL_MS = 1_000 / SCENE_SYNC_MAX_HZ;
 const HEARTBEAT_MS = 250;
 const DISCOVERY_SETTLE_MS = 350;
-const SDK_OPTIONS = Object.freeze({ password: false, salt: "minimal-social-threat-v2" });
+const SDK_OPTIONS = Object.freeze({ password: false, salt: "minimal-social-threat-v3" });
 
 export type SceneCommand =
   | { version: 1; type: "command"; requestId: string; action: "start" | "pause" | "resume" | "reset" }
@@ -107,7 +107,7 @@ function validSnapshot(value: unknown): value is SceneSnapshot {
       && ["shadow", "angry-agent"].includes(item.config.threatKind)
       && ["gentle", "standard"].includes(item.config.intensity)
       && ["virtual", "passthrough"].includes(item.config.mode))
-    && Array.isArray(item.agents) && item.agents.length === 6
+    && Array.isArray(item.agents) && item.agents.length === 12
     && item.agents.every((agent) => typeof agent.id === "string" && agent.id.length <= 40
       && Number.isFinite(agent.x) && Number.isFinite(agent.z) && Number.isFinite(agent.yaw)
       && ["calm", "alert", "afraid", "angry"].includes(agent.expression)
@@ -115,19 +115,20 @@ function validSnapshot(value: unknown): value is SceneSnapshot {
       && typeof agent.speaking === "boolean" && typeof agent.detectedThreat === "boolean"
       && Number.isFinite(agent.fear) && agent.fear >= 0 && agent.fear <= 1
       && Number.isFinite(agent.gait) && Number.isFinite(agent.gesture))
-    && Array.isArray(item.socialLinks) && item.socialLinks.length <= 6
+    && Array.isArray(item.socialLinks) && item.socialLinks.length <= 12
     && item.socialLinks.every((link) => typeof link.sourceId === "string" && typeof link.targetId === "string"
       && ["conversation", "alarm"].includes(link.kind))
     && Array.isArray(item.audioCues) && item.audioCues.length <= 4
     && item.audioCues.every((cue) => typeof cue.id === "string" && cue.id.length <= 128
       && typeof cue.sourceId === "string" && typeof cue.text === "string" && cue.text.length <= 80
-      && ["murmur", "acknowledge", "warning", "gasp", "roughness"].includes(cue.kind)
+      && ["friendly", "murmur", "acknowledge", "warning", "gasp", "roughness"].includes(cue.kind)
       && Number.isFinite(cue.x) && Number.isFinite(cue.z) && Number.isFinite(cue.gain)
       && Number.isFinite(cue.startedAtMs) && Number.isFinite(cue.durationMs))
     && Boolean(item.threat
       && ["shadow", "angry-agent"].includes(item.threat.kind)
       && Number.isFinite(item.threat.x) && Number.isFinite(item.threat.z)
-      && Number.isFinite(item.threat.distance));
+      && Number.isFinite(item.threat.distance)
+      && Number.isFinite(item.threat.visibility) && item.threat.visibility >= 0 && item.threat.visibility <= 1);
 }
 
 export function encodeSceneFrame(sequence: number, snapshot: SceneSnapshot) {

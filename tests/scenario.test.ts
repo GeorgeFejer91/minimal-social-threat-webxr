@@ -40,7 +40,9 @@ test("gentle mode gives the participant more approach time", () => {
 
 test("baseline agents form dyads with non-synchronized social behavior", () => {
   const baseline = evaluateScenario(config, 3_200, "test", { running: true });
-  assert.equal(baseline.socialLinks.filter((link) => link.kind === "conversation").length, 3);
+  assert.equal(baseline.agents.length, 12);
+  assert.equal(baseline.socialLinks.filter((link) => link.kind === "conversation").length, 6);
+  assert.ok(baseline.agents.every((agent) => agent.z < 0), "the baseline crowd stays in front of the observer");
   assert.ok(new Set(baseline.agents.map((agent) => agent.behavior)).size >= 2);
   assert.ok(baseline.agents.some((agent) => agent.behavior === "talk"));
   assert.ok(baseline.agents.some((agent) => agent.behavior === "listen"));
@@ -57,9 +59,26 @@ test("threat awareness spreads with individual detection delays", () => {
 
 test("dialogue and threat cues are deterministic scene data", () => {
   const chat = evaluateScenario(config, 3_200, "test", { running: true });
-  assert.equal(chat.audioCues[0]?.sourceId, "agent-c");
-  assert.equal(chat.agents.find((agent) => agent.id === "agent-c")?.speaking, true);
+  assert.equal(chat.audioCues[0]?.kind, "friendly");
+  assert.equal(chat.audioCues[0]?.sourceId, "agent-e");
+  assert.equal(chat.agents.find((agent) => agent.id === "agent-e")?.speaking, true);
   const threat = evaluateScenario(config, 12_300, "test", { running: true });
   assert.equal(threat.audioCues[0]?.kind, "roughness");
   assert.equal(threat.audioCues[0]?.sourceId, "threat");
+});
+
+test("the shrouded threat begins hidden and fades in monotonically with approach", () => {
+  const baseline = evaluateScenario(config, 4_000, "test", { running: true });
+  const approachStart = evaluateScenario(config, 11_000, "test", { running: true });
+  const midway = evaluateScenario(config, 17_000, "test", { running: true });
+  const hold = evaluateScenario(config, 24_000, "test", { running: true });
+  assert.equal(baseline.threat.distance, 16);
+  assert.equal(baseline.threat.visibility, 0);
+  assert.equal(approachStart.threat.visibility, 0);
+  assert.ok(midway.threat.visibility > approachStart.threat.visibility);
+  assert.ok(hold.threat.visibility > midway.threat.visibility);
+  assert.equal(hold.threat.visibility, 1);
+
+  const comparison = evaluateScenario({ ...config, threatKind: "angry-agent" }, 1_000, "test", { running: true });
+  assert.equal(comparison.threat.visibility, 1);
 });

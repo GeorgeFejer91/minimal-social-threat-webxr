@@ -6,8 +6,8 @@ A deterministic social-threat research prototype with a phone-first 2D trial, op
 
 **Direct views:** [2D trial](https://georgefejer91.github.io/minimal-social-threat-webxr/?view=trial) · [companion view](https://georgefejer91.github.io/minimal-social-threat-webxr/?view=companion)
 
-- **2D trial:** six minimalist agents form three conversational dyads, meander independently, exchange talk/listen roles, and look toward one another. A shrouded shadow or angry agent approaches; threat awareness spreads with staggered delays before the group startles and avoids it.
-- **Spatial audio:** explicit opt-in enables non-lexical social vocal cues and a continuous, position-bound threat sound through Web Audio HRTF panning. The threat uses 70 Hz amplitude modulation as a documented auditory-roughness adaptation.
+- **2D trial:** twelve minimalist agents form six conversational dyads in a large crowd entirely in front of the observer. They meander independently, exchange talk/listen roles, and look toward one another. A shadow starts 16 m away and invisible, then approaches and fades in; threat awareness spreads with staggered delays before the group startles and avoids it.
+- **Spatial audio:** explicit opt-in lets dyads trade short consonant/harmonic friendly-tone prototypes and renders a continuous, position-bound threat sound through Web Audio HRTF panning. The threat uses 70 Hz amplitude modulation as a documented auditory-roughness adaptation. The friendly mapping is study-motivated, not culturally universal or independently validated.
 - **Optional WebXR:** the Three.js preview, headset VR, and passthrough MR load only when requested.
 - **Companion view:** a realtime top-down diagram, scene readback, and bounded start/pause/reset/configuration controls.
 
@@ -25,7 +25,7 @@ This repository is a **stimulus-building prototype**, not a pre-validated paradi
 - audio localization, roughness, loudness, audiovisual co-location, and headphone/headset calibration;
 - device/browser compatibility and cultural or population-specific interpretation.
 
-The threat has a code-tested **1.8 m minimum distance**. After an 8-second social baseline and 3-second detection interval, “Gentle” takes 18 seconds to approach and “Standard” takes 12 seconds. Phone controls, either XR controller trigger, and the companion can pause the scene. Digital limiting does not establish a safe sound-pressure level; begin at low volume and calibrate physical output before participant use.
+The threat has a code-tested **1.8 m minimum distance**. After an 8-second social baseline and 3-second detection interval, “Gentle” takes 18 seconds to approach and “Standard” takes 12 seconds. The right-controller A button starts/resumes in VR; phone controls, either XR controller trigger, and the companion can pause. Digital limiting does not establish a safe sound-pressure level; begin at low volume and calibrate physical output before participant use.
 
 ## Quick start
 
@@ -79,7 +79,7 @@ The workflow supplies the repository base path. If you use a custom domain at th
 | Rendering | Each browser | Same positions/phase from the latest accepted frame |
 | Logging | 2D trial host | Downloadable bounded CSV; never uploaded by this app |
 
-The scene transport follows the Affect Tracker’s remote-Flubber pattern: bundled VDO.Ninja SDK 1.5.5, a data-only public discovery room, anonymous random stream IDs, no media tracks, `ordered: false`, `maxRetransmits: 0`, newest-state backpressure, sequence validation, automatic selection only when one source exists, and an explicit stale state. Schema-v2 JSON includes the complete social state and active audio-cue metadata rather than Affect Tracker’s 12-byte X/Y frame.
+The scene transport follows the Affect Tracker’s remote-Flubber pattern: bundled VDO.Ninja SDK 1.5.5, a data-only public discovery room, anonymous random stream IDs, no media tracks, `ordered: false`, `maxRetransmits: 0`, newest-state backpressure, sequence validation, automatic selection only when one source exists, and an explicit stale state. Schema-v3 JSON includes the complete twelve-agent social state, active audio-cue metadata, and threat visibility rather than Affect Tracker’s 12-byte X/Y frame.
 
 ### Wire data
 
@@ -105,7 +105,7 @@ The automated checks do not qualify a headset study. Before claiming support, re
 - headset model, OS, browser version, and served HTTPS URL;
 - `immersive-vr` and `immersive-ar` entry/exit;
 - virtual background and compositor passthrough behavior;
-- controller-trigger pause and companion pause/reset;
+- right-controller A-button start/resume, controller-trigger pause, and companion pause/reset;
 - direct and relayed VDO routes, multi-source selection, disconnect, stale hold, and recovery;
 - 1.8 m visual/behavioral limit, Gentle/Standard timing, CSV download, and no unexpected permissions;
 - at least a 15-minute thermal/network soak and participant-visible comfort review.

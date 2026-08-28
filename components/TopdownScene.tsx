@@ -44,14 +44,14 @@ export function TopdownScene({ snapshot, stale = false }: TopdownSceneProps) {
       context.fillStyle = gradient;
       roundRect(context, 0, 0, w, h, 22);
 
-      const scale = Math.min(w, h) / 20;
+      const scale = Math.min(w, h) / 21;
       const ox = w / 2;
-      const oz = h / 2;
+      const oz = h * 0.82;
       const point = (x: number, z: number) => ({ x: ox + x * scale, y: oz + z * scale });
 
       context.strokeStyle = "rgba(194, 238, 215, 0.10)";
       context.lineWidth = 1;
-      for (let meter = -8; meter <= 8; meter += 2) {
+      for (let meter = -16; meter <= 4; meter += 2) {
         const x = ox + meter * scale;
         const y = oz + meter * scale;
         context.beginPath(); context.moveTo(x, oz - 9 * scale); context.lineTo(x, oz + 9 * scale); context.stroke();
@@ -111,6 +111,8 @@ export function TopdownScene({ snapshot, stale = false }: TopdownSceneProps) {
           context.fillText(agent.behavior.toUpperCase(), p.x, p.y + 22);
         }
 
+        context.save();
+        context.globalAlpha = snapshot.threat.kind === "shadow" ? 0.22 + snapshot.threat.visibility * 0.78 : 1;
         context.fillStyle = snapshot.threat.kind === "shadow" ? "rgba(2, 2, 8, .94)" : "#ef6262";
         context.beginPath(); context.arc(threat.x, threat.y, snapshot.threat.kind === "shadow" ? 18 : 15, 0, Math.PI * 2); context.fill();
         context.strokeStyle = snapshot.threat.kind === "shadow" ? "#ff453a" : "#2a1111";
@@ -120,6 +122,7 @@ export function TopdownScene({ snapshot, stale = false }: TopdownSceneProps) {
         context.fillStyle = "#fff2dc";
         context.font = "700 11px system-ui";
         context.fillText(snapshot.threat.kind === "shadow" ? "SHADOW" : "THREAT", threat.x, threat.y - 25);
+        context.restore();
 
         context.fillStyle = "rgba(6, 20, 17, .86)";
         roundRect(context, 14, 14, 168, 58, 13);

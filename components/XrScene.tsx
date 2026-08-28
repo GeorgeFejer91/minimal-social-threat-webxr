@@ -142,15 +142,17 @@ function makeThreat() {
   const root = new THREE.Group();
 
   const shadow = new THREE.Group();
+  const cloakMaterial = new THREE.MeshStandardMaterial({ color: 0x030308, roughness: 1, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false });
   const cloak = new THREE.Mesh(
     new THREE.ConeGeometry(0.82, 1.9, 18, 1, true),
-    new THREE.MeshStandardMaterial({ color: 0x030308, roughness: 1, transparent: true, opacity: 0.94, side: THREE.DoubleSide }),
+    cloakMaterial,
   );
   cloak.position.y = 0.88;
   shadow.add(cloak);
+  const hoodMaterial = new THREE.MeshStandardMaterial({ color: 0x020207, roughness: 1, transparent: true, opacity: 0, depthWrite: false });
   const hood = new THREE.Mesh(
     new THREE.SphereGeometry(0.42, 18, 12),
-    new THREE.MeshStandardMaterial({ color: 0x020207, roughness: 1 }),
+    hoodMaterial,
   );
   hood.position.y = 1.67;
   shadow.add(hood);
@@ -161,7 +163,7 @@ function makeThreat() {
   aura.position.y = 1.03;
   aura.scale.y = 1.35;
   shadow.add(aura);
-  const eyeMaterial = new THREE.MeshBasicMaterial({ color: 0xff3c32 });
+  const eyeMaterial = new THREE.MeshBasicMaterial({ color: 0xff3c32, transparent: true, opacity: 0, depthWrite: false });
   for (const side of [-1, 1]) {
     const eye = new THREE.Mesh(new THREE.SphereGeometry(0.045, 10, 8), eyeMaterial);
     eye.position.set(side * 0.13, 1.72, 0.37);
@@ -175,6 +177,8 @@ function makeThreat() {
   root.add(angryAgent);
   root.userData.shadow = shadow;
   root.userData.aura = aura;
+  root.userData.cloakMaterial = cloakMaterial;
+  root.userData.hoodMaterial = hoodMaterial;
   root.userData.eyeMaterial = eyeMaterial;
   root.userData.angryAgent = angryAgent;
   return root;
@@ -400,8 +404,15 @@ const XrScene = forwardRef<XrSceneHandle, XrSceneProps>(function XrScene(
         threat.position.set(threatState.x, 0, threatState.z);
         const shadow = threat.userData.shadow as THREE.Group;
         const angryAgent = threat.userData.angryAgent as THREE.Group;
-        shadow.visible = threatState.kind === "shadow";
+        const visibility = THREE.MathUtils.clamp(threatState.visibility, 0, 1);
+        shadow.visible = threatState.kind === "shadow" && visibility > 0.005;
         angryAgent.visible = threatState.kind === "angry-agent";
+        const cloakMaterial = threat.userData.cloakMaterial as THREE.MeshStandardMaterial;
+        const hoodMaterial = threat.userData.hoodMaterial as THREE.MeshStandardMaterial;
+        const eyeMaterial = threat.userData.eyeMaterial as THREE.MeshBasicMaterial;
+        cloakMaterial.opacity = visibility * 0.94;
+        hoodMaterial.opacity = visibility * 0.98;
+        eyeMaterial.opacity = THREE.MathUtils.smoothstep(visibility, 0.12, 0.92);
         if (angryAgent.visible) {
           const face = angryAgent.userData.face as THREE.Mesh;
           (face.material as THREE.MeshBasicMaterial).map = texture("threat-angry", () => faceTexture("angry", "#e45d5d", "angry-agent"));
@@ -410,7 +421,7 @@ const XrScene = forwardRef<XrSceneHandle, XrSceneProps>(function XrScene(
         const pulse = 1.05 + Math.sin(time * 0.006) * 0.035;
         threat.scale.setScalar(pulse);
         const aura = threat.userData.aura as THREE.Mesh;
-        (aura.material as THREE.MeshBasicMaterial).opacity = 0.13 + Math.sin(time * 0.0043) * 0.045;
+        (aura.material as THREE.MeshBasicMaterial).opacity = visibility * (0.13 + Math.sin(time * 0.0043) * 0.045);
       }
       if (renderer.xr.isPresenting && audioRef.current?.enabled) {
         const xrCamera = renderer.xr.getCamera(camera);

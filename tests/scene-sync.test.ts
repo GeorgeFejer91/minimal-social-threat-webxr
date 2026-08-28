@@ -15,7 +15,7 @@ test("scene frames round-trip with a version and headset readback", () => {
   assert.equal(frame?.sequence, 42);
   assert.equal(frame?.snapshot.sessionId, "session_test");
   assert.equal(frame?.snapshot.lastCommandId, "cmd_ok");
-  assert.equal(frame?.snapshot.agents.length, 6);
+  assert.equal(frame?.snapshot.agents.length, 12);
 });
 
 test("decoder rejects oversized, malformed, and wrong-version frames", () => {

@@ -1,5 +1,13 @@
 # Project-memory changelog
 
+## 2026-08-28 — schema v3 front crowd, friendly tones, and fading shadow
+
+- Expanded the group from three to six dyads: twelve independently moving agents, all placed in front of the observer.
+- Replaced baseline vocal placeholders with alternating, HRTF-positioned friendly-tone prototypes using smooth envelopes and simple 5:4 and 3:2 harmonic ratios.
+- Moved the shadow start to 16 m, made it participant-invisible through baseline/detection, and tied its fade-in monotonically to approach proximity in 2D and WebXR.
+- Kept a faint visibility-independent shadow marker only in the operator companion so the operator can monitor hidden stimulus state.
+- Bumped scene snapshots and the VDO.Ninja discovery namespace to v3 because agent cardinality and threat state changed.
+
 ## 2026-08-28 — immersive controller start
 
 - Removed the visible 1.8 m boundary ring and dark instructional warning billboard from the immersive renderer while retaining the authoritative 1.8 m approach constraint.

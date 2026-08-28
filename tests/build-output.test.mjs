@@ -90,6 +90,21 @@ test("spatial threat audio uses HRTF panning and the documented roughness modula
   assert.match(audio, /panningModel = "HRTF"/);
   assert.match(audio, /modulator\.frequency\.value = 70/);
   assert.match(audio, /distanceModel = "inverse"/);
+  assert.match(audio, /makeFriendlyCue/);
+  assert.match(audio, /\[5 \/ 4, 0\.27\]/);
+  assert.match(audio, /\[3 \/ 2, 0\.18\]/);
+});
+
+test("participant renderers consume authoritative shadow visibility", async () => {
+  const [scenario, participantScene, xrScene] = await Promise.all([
+    readFile(new URL("lib/scenario.ts", root), "utf8"),
+    readFile(new URL("components/ParticipantScene2D.tsx", root), "utf8"),
+    readFile(new URL("components/XrScene.tsx", root), "utf8"),
+  ]);
+  assert.match(scenario, /THREAT_START_Z = -16/);
+  assert.match(scenario, /visibility: threatVisibility/);
+  assert.match(participantScene, /globalAlpha = snapshot\.threat\.visibility/);
+  assert.match(xrScene, /threatState\.visibility/);
 });
 
 test("first-read project memory and social preview are shipped", async () => {

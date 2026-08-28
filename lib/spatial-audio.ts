@@ -132,6 +132,7 @@ export class SpatialAudioEngine {
     envelope.connect(panner);
 
     if (cue.kind === "roughness") this.makeRoughThreat(envelope, now, stopAt);
+    else if (cue.kind === "friendly") this.makeFriendlyCue(envelope, cue, now, stopAt);
     else this.makeVocalCue(envelope, cue, now, stopAt);
 
     this.seen.add(cue.id);
@@ -140,6 +141,27 @@ export class SpatialAudioEngine {
       try { panner.disconnect(); } catch { /* already disconnected by reset/session change */ }
       this.active.delete(cue.id);
     }, Math.ceil((remainingSeconds + 0.08) * 1_000));
+  }
+
+  private makeFriendlyCue(destination: AudioNode, cue: AudioCue, start: number, stop: number) {
+    const context = this.context!;
+    const alternate = cue.sourceId.charCodeAt(cue.sourceId.length - 1) % 2 === 0;
+    const root = alternate ? 240 : 220;
+
+    // Smooth attacks, moderate pitch, and simple harmonic ratios are an explicit
+    // study-motivated operationalization of positive/low-tension affect. They are
+    // not treated as a universal or already validated "friendliness" label.
+    for (const [ratio, amount] of [[1, 0.48], [5 / 4, 0.27], [3 / 2, 0.18]] as const) {
+      const oscillator = context.createOscillator();
+      const voiceGain = context.createGain();
+      oscillator.type = ratio === 1 ? "triangle" : "sine";
+      oscillator.frequency.setValueAtTime(root * ratio, start);
+      oscillator.frequency.linearRampToValueAtTime(root * ratio * 1.045, stop);
+      voiceGain.gain.value = amount;
+      oscillator.connect(voiceGain).connect(destination);
+      oscillator.start(start);
+      oscillator.stop(stop);
+    }
   }
 
   private makeVocalCue(destination: AudioNode, cue: AudioCue, start: number, stop: number) {

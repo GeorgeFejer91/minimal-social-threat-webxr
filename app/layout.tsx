@@ -7,18 +7,18 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://georgefejer91.githu
 export const metadata: Metadata = {
   metadataBase: new URL(`${siteUrl}/`),
   title: "Social Threat Lab · social dyads, spatial audio, and WebXR",
-  description: "A phone-first social-agent threat scenario with conversational dyads, HRTF spatial audio, a realtime companion, and optional WebXR.",
+  description: "A phone-first social-agent threat scenario with a front-facing crowd, friendly dyadic tones, HRTF spatial audio, a realtime companion, and optional WebXR.",
   openGraph: {
     title: "Social Threat Lab",
-    description: "Three conversational dyads react to an approaching shrouded threat in 2D, spatial audio, and optional WebXR.",
+    description: "Six conversational dyads in a front-facing crowd react to a gradually appearing shrouded threat in 2D, spatial audio, and optional WebXR.",
     type: "website",
     url: siteUrl,
-    images: [{ url: `${siteUrl}/og.png`, width: 1672, height: 941, alt: "Social Threat Lab scene with three agent dyads, an observer, and an approaching shadow" }],
+    images: [{ url: `${siteUrl}/og.png`, width: 1672, height: 941, alt: "Social Threat Lab scene with agent dyads, an observer, and an approaching shadow" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "Social Threat Lab",
-    description: "Three conversational dyads react to an approaching shrouded threat in 2D, spatial audio, and optional WebXR.",
+    description: "Six conversational dyads react to a gradually appearing shrouded threat in 2D, spatial audio, and optional WebXR.",
     images: [`${siteUrl}/og.png`],
   },
 };

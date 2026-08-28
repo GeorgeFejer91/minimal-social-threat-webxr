@@ -131,6 +131,9 @@ function drawThreat(
   const shadow = snapshot.threat.kind === "shadow";
 
   if (shadow) {
+    if (snapshot.threat.visibility <= 0.005) return;
+    context.save();
+    context.globalAlpha = snapshot.threat.visibility;
     const aura = context.createRadialGradient(point.x, point.y + size * 0.15, size * 0.15, point.x, point.y + size * 0.15, size * 1.15);
     aura.addColorStop(0, "rgba(4, 4, 8, .88)");
     aura.addColorStop(0.55, "rgba(5, 4, 10, .54)");
@@ -164,6 +167,7 @@ function drawThreat(
     context.textAlign = "center";
     context.textBaseline = "middle";
     context.fillText("SHADOW", point.x, point.y - size * 0.78);
+    context.restore();
     return;
   }
 
@@ -327,7 +331,7 @@ export function ParticipantScene2D({ snapshot }: ParticipantScene2DProps) {
       ref={canvasRef}
       className="participant-canvas"
       role="img"
-      aria-label={`Two-dimensional trial scene. ${snapshot.agents.filter((agent) => agent.expression === "afraid").length} of six agents show fear. The ${snapshot.threat.kind === "shadow" ? "shrouded shadow" : "angry agent"} is ${snapshot.threat.distance.toFixed(1)} metres away.`}
+      aria-label={`Two-dimensional trial scene. ${snapshot.agents.filter((agent) => agent.expression === "afraid").length} of ${snapshot.agents.length} agents show fear. The ${snapshot.threat.kind === "shadow" ? "shrouded shadow" : "angry agent"} is ${snapshot.threat.distance.toFixed(1)} metres away.`}
     />
   );
 }
