@@ -1,0 +1,87 @@
+{
+  "_framework-DTZGTDtF.js": {
+    "file": "_next/static/chunks/framework-DTZGTDtF.js",
+    "name": "framework",
+    "imports": [
+      "_rolldown-runtime-hePW80VL.js"
+    ]
+  },
+  "_rolldown-runtime-hePW80VL.js": {
+    "file": "_next/static/chunks/rolldown-runtime-hePW80VL.js",
+    "name": "rolldown-runtime"
+  },
+  "_vinext-WawpgsoF.js": {
+    "file": "_next/static/chunks/vinext-WawpgsoF.js",
+    "name": "vinext",
+    "imports": [
+      "_rolldown-runtime-hePW80VL.js",
+      "_framework-DTZGTDtF.js"
+    ],
+    "dynamicImports": [
+      "_vinext-WawpgsoF.js"
+    ]
+  },
+  "components/StudyApp.tsx": {
+    "file": "_next/static/chunks/StudyApp-DKtbG59Z.js",
+    "name": "StudyApp",
+    "src": "components/StudyApp.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-hePW80VL.js",
+      "_framework-DTZGTDtF.js",
+      "_vinext-WawpgsoF.js"
+    ],
+    "dynamicImports": [
+      "components/XrScene.tsx"
+    ]
+  },
+  "components/XrScene.tsx": {
+    "file": "_next/static/chunks/XrScene-D8_YPky-.js",
+    "name": "XrScene",
+    "src": "components/XrScene.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-hePW80VL.js",
+      "_framework-DTZGTDtF.js"
+    ]
+  },
+  "node_modules/vinext/dist/shims/layout-segment-context.js": {
+    "file": "_next/static/chunks/layout-segment-context-jFZxQXcE.js",
+    "name": "layout-segment-context",
+    "src": "node_modules/vinext/dist/shims/layout-segment-context.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-hePW80VL.js",
+      "_framework-DTZGTDtF.js",
+      "_vinext-WawpgsoF.js"
+    ]
+  },
+  "node_modules/vinext/dist/shims/script.js": {
+    "file": "_next/static/chunks/script-CSsvVgoK.js",
+    "name": "script",
+    "src": "node_modules/vinext/dist/shims/script.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-hePW80VL.js",
+      "_framework-DTZGTDtF.js",
+      "_vinext-WawpgsoF.js"
+    ]
+  },
+  "virtual:vinext-app-browser-entry": {
+    "file": "_next/static/chunks/index-DWh0VfPE.js",
+    "name": "index",
+    "src": "virtual:vinext-app-browser-entry",
+    "isEntry": true,
+    "imports": [
+      "_rolldown-runtime-hePW80VL.js",
+      "_framework-DTZGTDtF.js",
+      "_vinext-WawpgsoF.js"
+    ],
+    "dynamicImports": [
+      "_vinext-WawpgsoF.js",
+      "node_modules/vinext/dist/shims/layout-segment-context.js",
+      "components/StudyApp.tsx",
+      "node_modules/vinext/dist/shims/script.js"
+    ]
+  }
+}
