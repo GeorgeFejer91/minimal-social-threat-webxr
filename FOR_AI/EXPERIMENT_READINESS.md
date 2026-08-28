@@ -59,6 +59,12 @@ Public source `959bf88` was opened on the same Quest 3 / Quest Browser 149 throu
 
 This is bounded lifecycle evidence only: it shows that automatic browser audio starts and stops with the observed VR session. It does not establish HRTF perceptual accuracy, channel rendering, loudness/SPL, audiovisual co-location, comfort, construct validity, MR behavior, or participant readiness. No headset-wide audio or volume setting was changed, and the run-owned debugging forward was removed afterward.
 
+## Current-source Quest and bridge readback recorded 2026-08-29
+
+Public source `7346177` was loaded into the existing dedicated-host tab on the same Quest 3 / Quest Browser 149 through a bounded, serial-scoped raw-ADB diagnostic because the target is a WebXR page rather than an installable APK. Fresh page readback reported the exact cache-busted URL, `visible` page state, WebXR present, immersive VR and AR support, Three.js engine readiness, operator-link broadcasting, the new **2D view** / **3D view** controls, and no JavaScript exception or console error. The PC companion discovered several restored lab tabs, explicitly selected the live `headset`-role source, established a direct data route, and received exact `confirmed` receipts for Start, Pause, and Reset; headset readback returned inline XR state, VR/MR support, engine readiness, and Reset convergence to Ready / 0.0 seconds / 16.00 m.
+
+The headset was not being worn and repeatedly returned to Meta Home/sleep even though the pre-existing stay-awake flag read true. Consequently the background page clock remained at 0.0 seconds after the remotely confirmed Start, and this attempt was excluded from foreground/immersive rendering acceptance. No remote XR entry was attempted: the trusted confirmation still belongs to a wearer-side action. The run changed no volume, audio, proximity, or persistent power setting; its temporary debug forward was removed. Earlier source `959bf88` remains the latest physical-wearer immersive-audio lifecycle evidence, while a current-source wearer-confirmed immersive visual pass remains pending.
+
 ## Claims that must not be made yet
 
 - “Scientifically validated threat stimulus.” A methods-derived reconstruction and a PPS Kit-derived localization layer do not transfer validation to this combined scenario.
