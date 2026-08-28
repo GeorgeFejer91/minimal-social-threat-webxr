@@ -131,7 +131,7 @@ export class SpatialAudioEngine {
     envelope.gain.exponentialRampToValueAtTime(0.0001, Math.max(now + 0.11, stopAt - 0.025));
     envelope.connect(panner);
 
-    if (cue.kind === "roughness") this.makeRoughThreat(envelope, now, stopAt);
+    if (cue.kind === "roughness" || cue.kind === "spider-menace") this.makeMenacingThreat(envelope, cue, elapsedMs, now, stopAt);
     else if (cue.kind === "friendly") this.makeFriendlyCue(envelope, cue, now, stopAt);
     else this.makeVocalCue(envelope, cue, now, stopAt);
 
@@ -181,32 +181,97 @@ export class SpatialAudioEngine {
     }
   }
 
-  private makeRoughThreat(destination: AudioNode, start: number, stop: number) {
+  private makeMenacingThreat(destination: AudioNode, cue: AudioCue, elapsedMs: number, start: number, stop: number) {
     const context = this.context!;
     const amplitude = context.createGain();
-    amplitude.gain.value = 0.54;
+    amplitude.gain.value = 0.48;
     amplitude.connect(destination);
 
-    // The 70 Hz modulation rate follows Taffou et al. (2021); it is a
-    // roughness parameter, not a claim that a 70 Hz carrier is universally threatening.
-    const modulator = context.createOscillator();
-    const modulationDepth = context.createGain();
-    modulator.frequency.value = 70;
-    modulationDepth.gain.value = 0.43;
-    modulator.connect(modulationDepth).connect(amplitude.gain);
-    modulator.start(start);
-    modulator.stop(stop);
+    // Rough amplitude modulation sits inside the 30–150 Hz regime reported for
+    // screams and alarm signals by Arnal et al. (2015). The inharmonic carriers,
+    // slow pulse acceleration, and source-level HRTF motion are hypotheses to
+    // pilot, not a claim that this composite is already a validated stimulus.
+    for (const [rate, depth] of [[47, 0.17], [83, 0.12]] as const) {
+      const modulator = context.createOscillator();
+      const modulationDepth = context.createGain();
+      modulator.frequency.value = rate;
+      modulationDepth.gain.value = depth;
+      modulator.connect(modulationDepth).connect(amplitude.gain);
+      modulator.start(start);
+      modulator.stop(stop);
+    }
 
-    for (const [frequency, amount] of [[92, 0.42], [137, 0.24], [221, 0.14]] as const) {
+    for (const [frequency, amount] of [[61, 0.34], [97, 0.20], [151, 0.12], [233, 0.07]] as const) {
       const carrier = context.createOscillator();
       const carrierGain = context.createGain();
-      carrier.type = frequency === 92 ? "sawtooth" : "triangle";
+      carrier.type = frequency === 61 ? "sawtooth" : "triangle";
       carrier.frequency.setValueAtTime(frequency, start);
-      carrier.frequency.exponentialRampToValueAtTime(frequency * 0.91, stop);
+      carrier.frequency.exponentialRampToValueAtTime(frequency * 0.86, stop);
       carrierGain.gain.value = amount;
       carrier.connect(carrierGain).connect(amplitude);
       carrier.start(start);
       carrier.stop(stop);
+    }
+
+    const noiseLength = Math.max(1, Math.round(context.sampleRate * 0.73));
+    const noiseBuffer = context.createBuffer(1, noiseLength, context.sampleRate);
+    const noise = noiseBuffer.getChannelData(0);
+    let seed = cue.kind === "spider-menace" ? 0x51f15e : 0x7a11d;
+    for (let index = 0; index < noise.length; index += 1) {
+      seed = (Math.imul(seed, 1_664_525) + 1_013_904_223) >>> 0;
+      noise[index] = (seed / 0xffffffff) * 2 - 1;
+    }
+    const noiseSource = context.createBufferSource();
+    const noiseFilter = context.createBiquadFilter();
+    const noiseGain = context.createGain();
+    noiseSource.buffer = noiseBuffer;
+    noiseSource.loop = true;
+    noiseFilter.type = "bandpass";
+    noiseFilter.frequency.value = cue.kind === "spider-menace" ? 1_950 : 330;
+    noiseFilter.Q.value = cue.kind === "spider-menace" ? 1.8 : 0.72;
+    noiseGain.gain.value = cue.kind === "spider-menace" ? 0.075 : 0.045;
+    noiseSource.connect(noiseFilter).connect(noiseGain).connect(amplitude);
+    noiseSource.start(start);
+    noiseSource.stop(stop);
+
+    const totalSeconds = Math.max(0.5, cue.durationMs / 1_000);
+    const offsetSeconds = Math.max(0, (elapsedMs - cue.startedAtMs) / 1_000);
+    let localTime = 0;
+    while (start + localTime < stop - 0.08) {
+      const progress = Math.min(1, (offsetSeconds + localTime) / totalSeconds);
+      const pulseStart = start + localTime;
+      const pulseEnd = Math.min(stop, pulseStart + 0.42);
+      const pulseGain = context.createGain();
+      pulseGain.gain.setValueAtTime(0.0001, pulseStart);
+      pulseGain.gain.exponentialRampToValueAtTime(0.16 + progress * 0.11, pulseStart + 0.018);
+      pulseGain.gain.exponentialRampToValueAtTime(0.0001, pulseEnd);
+      pulseGain.connect(destination);
+      const pulse = context.createOscillator();
+      pulse.type = "sine";
+      pulse.frequency.setValueAtTime(cue.kind === "spider-menace" ? 57 : 49, pulseStart);
+      pulse.frequency.exponentialRampToValueAtTime(29, pulseEnd);
+      pulse.connect(pulseGain);
+      pulse.start(pulseStart);
+      pulse.stop(pulseEnd);
+
+      if (cue.kind === "spider-menace") {
+        for (let click = 0; click < 3; click += 1) {
+          const clickStart = pulseStart + 0.055 + click * 0.047;
+          if (clickStart >= stop - 0.02) break;
+          const clickGain = context.createGain();
+          clickGain.gain.setValueAtTime(0.0001, clickStart);
+          clickGain.gain.exponentialRampToValueAtTime(0.035 + progress * 0.025, clickStart + 0.004);
+          clickGain.gain.exponentialRampToValueAtTime(0.0001, clickStart + 0.032);
+          clickGain.connect(destination);
+          const clickOscillator = context.createOscillator();
+          clickOscillator.type = "square";
+          clickOscillator.frequency.value = 760 + click * 287;
+          clickOscillator.connect(clickGain);
+          clickOscillator.start(clickStart);
+          clickOscillator.stop(clickStart + 0.035);
+        }
+      }
+      localTime += 1.72 - progress * 1.16;
     }
   }
 

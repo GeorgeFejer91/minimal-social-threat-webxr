@@ -81,15 +81,45 @@ function drawAgent(
   context.ellipse(point.x, point.y + size * 0.84, size * 0.47, size * 0.13, 0, 0, Math.PI * 2);
   context.fill();
 
-  context.fillStyle = color;
-  roundedRect(context, point.x - size * 0.4, point.y + size * 0.25, size * 0.8, size * 0.7, size * 0.28);
-  context.beginPath();
-  context.arc(point.x, point.y, size * 0.46, 0, Math.PI * 2);
-  context.fill();
-  context.strokeStyle = "rgba(239, 255, 248, .36)";
-  context.lineWidth = Math.max(1, size * 0.035);
-  context.stroke();
-  drawFace(context, point.x, point.y, size, agent.expression);
+  if (snapshot.config.agentStyle === "human") {
+    const skin = ["#bd8667", "#d7a281", "#8f5f49", "#e2b696"][index % 4];
+    context.strokeStyle = color;
+    context.lineWidth = size * 0.19;
+    context.lineCap = "round";
+    context.beginPath();
+    context.moveTo(point.x - size * 0.14, point.y + size * 0.62);
+    context.lineTo(point.x - size * 0.18, point.y + size * 1.02);
+    context.moveTo(point.x + size * 0.14, point.y + size * 0.62);
+    context.lineTo(point.x + size * 0.18, point.y + size * 1.02);
+    context.stroke();
+    context.fillStyle = color;
+    context.beginPath();
+    context.moveTo(point.x - size * 0.34, point.y + size * 0.22);
+    context.lineTo(point.x + size * 0.34, point.y + size * 0.22);
+    context.lineTo(point.x + size * 0.25, point.y + size * 0.69);
+    context.lineTo(point.x - size * 0.25, point.y + size * 0.69);
+    context.closePath();
+    context.fill();
+    context.fillStyle = skin;
+    context.beginPath();
+    context.ellipse(point.x, point.y - size * 0.02, size * 0.31, size * 0.38, 0, 0, Math.PI * 2);
+    context.fill();
+    context.fillStyle = "#2b211d";
+    context.beginPath();
+    context.arc(point.x, point.y - size * 0.1, size * 0.31, Math.PI, Math.PI * 2);
+    context.fill();
+    drawFace(context, point.x, point.y, size * 0.72, agent.expression);
+  } else {
+    context.fillStyle = color;
+    roundedRect(context, point.x - size * 0.4, point.y + size * 0.25, size * 0.8, size * 0.7, size * 0.28);
+    context.beginPath();
+    context.arc(point.x, point.y, size * 0.46, 0, Math.PI * 2);
+    context.fill();
+    context.strokeStyle = "rgba(239, 255, 248, .36)";
+    context.lineWidth = Math.max(1, size * 0.035);
+    context.stroke();
+    drawFace(context, point.x, point.y, size, agent.expression);
+  }
 
   if (agent.expression === "afraid") {
     const awayX = agent.x - snapshot.threat.x;
@@ -167,6 +197,66 @@ function drawThreat(
     context.textAlign = "center";
     context.textBaseline = "middle";
     context.fillText("SHADOW", point.x, point.y - size * 0.78);
+    context.restore();
+    return;
+  }
+
+  if (snapshot.threat.kind === "spider") {
+    if (snapshot.threat.visibility <= 0.005) return;
+    context.save();
+    context.globalAlpha = snapshot.threat.visibility;
+    const bodyY = point.y + size * 0.55;
+    const pulse = 1 + Math.sin(snapshot.elapsedMs * 0.013) * 0.035;
+    context.strokeStyle = "#1a100d";
+    context.lineWidth = Math.max(3, size * 0.085);
+    context.lineCap = "round";
+    for (let leg = 0; leg < 4; leg += 1) {
+      const vertical = (leg - 1.5) * size * 0.13;
+      const reach = size * (0.74 + Math.abs(leg - 1.5) * 0.12) * pulse;
+      for (const side of [-1, 1]) {
+        context.beginPath();
+        context.moveTo(point.x + side * size * 0.18, bodyY + vertical * 0.18);
+        context.lineTo(point.x + side * reach * 0.62, bodyY + vertical - size * 0.09);
+        context.lineTo(point.x + side * reach, bodyY + vertical + size * 0.18);
+        context.stroke();
+      }
+    }
+    context.fillStyle = "#241410";
+    context.beginPath();
+    context.ellipse(point.x, bodyY, size * 0.43 * pulse, size * 0.34 * pulse, 0, 0, Math.PI * 2);
+    context.fill();
+    context.fillStyle = "#321a13";
+    context.beginPath();
+    context.ellipse(point.x, bodyY - size * 0.37, size * 0.31, size * 0.28, 0, 0, Math.PI * 2);
+    context.fill();
+    context.strokeStyle = "rgba(202, 141, 94, .38)";
+    context.lineWidth = 1;
+    for (let hair = -3; hair <= 3; hair += 1) {
+      context.beginPath();
+      context.moveTo(point.x + hair * size * 0.08, bodyY - size * 0.12);
+      context.lineTo(point.x + hair * size * 0.11, bodyY - size * 0.39);
+      context.stroke();
+    }
+    context.fillStyle = "#090504";
+    context.beginPath();
+    context.moveTo(point.x - size * 0.13, bodyY - size * 0.55);
+    context.lineTo(point.x - size * 0.04, bodyY - size * 0.36);
+    context.lineTo(point.x - size * 0.19, bodyY - size * 0.38);
+    context.closePath();
+    context.fill();
+    context.beginPath();
+    context.moveTo(point.x + size * 0.13, bodyY - size * 0.55);
+    context.lineTo(point.x + size * 0.04, bodyY - size * 0.36);
+    context.lineTo(point.x + size * 0.19, bodyY - size * 0.38);
+    context.closePath();
+    context.fill();
+    context.fillStyle = "rgba(12, 6, 4, .86)";
+    roundedRect(context, point.x - size * 0.52, point.y - size * 0.56, size * 1.04, size * 0.24, size * 0.12);
+    context.fillStyle = "#ffd8c7";
+    context.font = `800 ${Math.max(8, size * 0.13)}px system-ui`;
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.fillText("SPIDER", point.x, point.y - size * 0.44);
     context.restore();
     return;
   }
@@ -331,7 +421,7 @@ export function ParticipantScene2D({ snapshot }: ParticipantScene2DProps) {
       ref={canvasRef}
       className="participant-canvas"
       role="img"
-      aria-label={`Two-dimensional trial scene. ${snapshot.agents.filter((agent) => agent.expression === "afraid").length} of ${snapshot.agents.length} agents show fear. The ${snapshot.threat.kind === "shadow" ? "shrouded shadow" : "angry agent"} is ${snapshot.threat.distance.toFixed(1)} metres away.`}
+      aria-label={`Two-dimensional trial scene. ${snapshot.agents.filter((agent) => agent.expression === "afraid").length} of ${snapshot.agents.length} agents show fear. The ${snapshot.threat.kind === "shadow" ? "shrouded shadow" : snapshot.threat.kind === "spider" ? "spider" : "angry agent"} is ${snapshot.threat.distance.toFixed(1)} metres away.`}
     />
   );
 }

@@ -21,5 +21,4 @@ Update this folder in the same change whenever work alters:
 - third-party code, human/avatar assets, sound, images, research sources, citations, or licenses;
 - validation status, known limitations, experimental claims, or intended study use.
 
-The current product is a deterministic, phone-first social-threat stimulus prototype with optional WebXR and a VDO.Ninja data-only companion. It is not a diagnostic and is not yet a validated social-neuroscience paradigm.
-
+The current product is a deterministic, phone-first social-threat stimulus prototype with direct optional WebXR launch, minimal or bundled human-form crowd avatars, shadow/angry-agent/spider conditions, evidence-informed looming audio, and a VDO.Ninja data-only companion that auto-discovers on its explicit view. It is not a diagnostic and is not yet a validated social-neuroscience paradigm.

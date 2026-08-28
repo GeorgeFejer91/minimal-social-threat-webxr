@@ -46,7 +46,7 @@ test("phone layout uses safe areas, touch targets, dynamic viewport height, and 
   assert.match(xrScene, /coarsePointer \? "pan-y" : "none"/);
 });
 
-test("2D trial is the primary playable scene and WebXR remains lazy and optional", async () => {
+test("2D trial is primary and direct immersive entry uses the prewarmed lazy engine", async () => {
   const [studyApp, participantScene, css] = await Promise.all([
     readFile(new URL("components/StudyApp.tsx", root), "utf8"),
     readFile(new URL("components/ParticipantScene2D.tsx", root), "utf8"),
@@ -55,9 +55,12 @@ test("2D trial is the primary playable scene and WebXR remains lazy and optional
   assert.match(studyApp, /type AppView = "landing" \| "trial" \| "companion"/);
   assert.match(studyApp, /view === "trial"/);
   assert.match(studyApp, /<ParticipantScene2D snapshot=\{scene\}/);
-  assert.match(studyApp, /Start trial/);
-  assert.match(studyApp, /Load optional 3D \/ WebXR view/);
-  assert.match(studyApp, /showXrPreview \?/);
+  assert.match(studyApp, /Start 2D/);
+  assert.match(studyApp, /Start immersive 3D/);
+  assert.match(studyApp, /onReady=\{handleXrReady\}/);
+  assert.match(studyApp, /className=\{showXrPreview \? "mini-xr-preview" : "xr-prewarm"\}/);
+  assert.match(studyApp, /void startBroadcast\(\)/);
+  assert.doesNotMatch(studyApp, /contentReady|trial-ready/);
   assert.match(participantScene, /snapshot\.agents/);
   assert.match(participantScene, /drawThreat/);
   assert.match(participantScene, /agent\.expression === "afraid"/);
@@ -65,7 +68,7 @@ test("2D trial is the primary playable scene and WebXR remains lazy and optional
   assert.match(css, /\.trial-transport/);
 });
 
-test("immersive VR starts from the right-controller A button without in-scene limit markers", async () => {
+test("immersive launch starts the clock and A remains a controller restart/resume action", async () => {
   const [studyApp, xrScene] = await Promise.all([
     readFile(new URL("components/StudyApp.tsx", root), "utf8"),
     readFile(new URL("components/XrScene.tsx", root), "utf8"),
@@ -74,7 +77,9 @@ test("immersive VR starts from the right-controller A button without in-scene li
   assert.match(xrScene, /gamepad\?\.buttons\[4\]\?\.pressed/);
   assert.match(xrScene, /onStartRequest/);
   assert.match(studyApp, /onStartRequest=\{handleXrStart\}/);
-  assert.match(studyApp, /resetScenario\("trial"\)/);
+  assert.match(studyApp, /await xrRef\.current\.enter\(mode\)/);
+  assert.match(studyApp, /startScenario\("trial"\)/);
+  assert.match(xrScene, /navigator\.xr\.requestSession/);
   assert.doesNotMatch(xrScene, /RingGeometry|informationTexture|marked limit/);
 });
 
@@ -85,14 +90,29 @@ test("GitHub Pages assets are flattened to the project root when a prefix is con
   await assert.rejects(access(new URL(`dist/client/${prefixName}`, root)));
 });
 
-test("spatial threat audio uses HRTF panning and the documented roughness modulation", async () => {
+test("spatial threat audio uses HRTF looming, roughness, and bounded accelerating pulses", async () => {
   const audio = await readFile(new URL("lib/spatial-audio.ts", root), "utf8");
   assert.match(audio, /panningModel = "HRTF"/);
-  assert.match(audio, /modulator\.frequency\.value = 70/);
+  assert.match(audio, /\[47, 0\.17\]/);
+  assert.match(audio, /\[83, 0\.12\]/);
+  assert.match(audio, /spider-menace/);
+  assert.match(audio, /localTime \+= 1\.72 - progress \* 1\.16/);
   assert.match(audio, /distanceModel = "inverse"/);
   assert.match(audio, /makeFriendlyCue/);
   assert.match(audio, /\[5 \/ 4, 0\.27\]/);
   assert.match(audio, /\[3 \/ 2, 0\.18\]/);
+});
+
+test("external human and spider assets are pinned and shipped locally", async () => {
+  const expected = new Map([
+    ["cesium-man.glb", "b7001eaeea8254bd44773bcd247e78696d94169388fbb2a1800fc69434e777d9"],
+    ["huntsman-spider.glb", "efc9cfda2b8a198277d6a1b10ca8123460d909deb76400ccddcb495d355bb5ca"],
+  ]);
+  for (const [name, hash] of expected) {
+    const bytes = await readFile(new URL(`public/assets/models/${name}`, root));
+    assert.equal(createHash("sha256").update(bytes).digest("hex"), hash, name);
+    await access(new URL(`dist/client/assets/models/${name}`, root));
+  }
 });
 
 test("participant renderers consume authoritative shadow visibility", async () => {

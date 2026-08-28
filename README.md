@@ -6,12 +6,12 @@ A deterministic social-threat research prototype with a phone-first 2D trial, op
 
 **Direct views:** [2D trial](https://georgefejer91.github.io/minimal-social-threat-webxr/?view=trial) · [companion view](https://georgefejer91.github.io/minimal-social-threat-webxr/?view=companion)
 
-- **2D trial:** twelve minimalist agents form six conversational dyads in a large crowd entirely in front of the observer. They meander independently, exchange talk/listen roles, and look toward one another. A shadow starts 16 m away and invisible, then approaches and fades in; threat awareness spreads with staggered delays before the group startles and avoids it.
-- **Spatial audio:** explicit opt-in lets dyads trade short consonant/harmonic friendly-tone prototypes and renders a continuous, position-bound threat sound through Web Audio HRTF panning. The threat uses 70 Hz amplitude modulation as a documented auditory-roughness adaptation. The friendly mapping is study-motivated, not culturally universal or independently validated.
-- **Optional WebXR:** the Three.js preview, headset VR, and passthrough MR load only when requested.
-- **Companion view:** a realtime top-down diagram, scene readback, and bounded start/pause/reset/configuration controls.
+- **2D trial:** twelve minimalist or human-proportioned agents form six conversational dyads in a large crowd entirely in front of the observer. Choose a fading shrouded shadow, visible angry agent, or fading Huntsman spider as the approaching threat.
+- **Spatial audio:** explicit opt-in lets dyads trade short consonant/harmonic friendly-tone prototypes. The threat combines HRTF looming, inharmonic carriers, 47/83 Hz rough modulation, deterministic noise and accelerating low pulses; the spider adds synthetic clicks. These are evidence-informed design features, not an independently validated composite.
+- **Optional WebXR:** the lazy Three.js engine prewarms automatically. A prominent button directly enters headset VR and starts or continues the same trial; passthrough MR remains available where supported.
+- **Companion view:** a realtime top-down diagram, scene readback, and bounded controls. Participant start begins a data-only VDO.Ninja broadcast; the separately opened companion auto-discovers it.
 
-The primary trial supports a dusk-clearing or neutral study-grid background. The optional add-on supports WebXR passthrough (`immersive-ar`). All current agents, shadow geometry, captions, and sounds are generated locally in code; no image, audio, or 3D-model download is required. The landing, trial, and companion views use a safe-area-aware single-column phone layout with touch-sized controls; both 2D Canvas and optional WebGL surfaces yield vertical gestures to page scrolling.
+The primary trial supports a dusk-clearing or neutral study-grid background. The optional add-on supports WebXR passthrough (`immersive-ar`). Procedural visuals and all sounds are generated locally; the WebXR view can additionally load locally bundled Cesium Man and Huntsman Spider GLBs. The landing, trial, and companion views use a safe-area-aware single-column phone layout with touch-sized controls; both 2D Canvas and optional WebGL surfaces yield vertical gestures to page scrolling.
 
 **First-time contributors and AI agents:** read [`FOR_AI/README.md`](FOR_AI/README.md) before working in this repository. It is the authority for requirements, scope, architecture, bibliography, source assets, and validation status.
 
@@ -25,7 +25,7 @@ This repository is a **stimulus-building prototype**, not a pre-validated paradi
 - audio localization, roughness, loudness, audiovisual co-location, and headphone/headset calibration;
 - device/browser compatibility and cultural or population-specific interpretation.
 
-The threat has a code-tested **1.8 m minimum distance**. After an 8-second social baseline and 3-second detection interval, “Gentle” takes 18 seconds to approach and “Standard” takes 12 seconds. The right-controller A button starts/resumes in VR; phone controls, either XR controller trigger, and the companion can pause. Digital limiting does not establish a safe sound-pressure level; begin at low volume and calibrate physical output before participant use.
+The threat has a code-tested **1.8 m minimum distance**. After an 8-second social baseline and 3-second detection interval, “Gentle” takes 18 seconds to approach and “Standard” takes 12 seconds. The immersive launch button starts/continues the trial; right-controller A restarts/resumes, while phone controls, either XR controller trigger, and the companion can pause. Digital limiting does not establish a safe sound-pressure level; begin at low volume and calibrate physical output before participant use.
 
 ## Quick start
 
@@ -41,7 +41,7 @@ Open `http://localhost:3000/`, then choose a view. Direct links are:
 - `http://localhost:3000/?view=trial`
 - `http://localhost:3000/?view=companion`
 
-The 2D trial works in an ordinary phone browser. For a headset, host the exported site over HTTPS, open the optional 3D/WebXR card, and choose VR or MR. To synchronize a second browser, explicitly start the scene broadcast and connect from the companion. No signaling or peer connection starts on page load.
+The 2D trial works in an ordinary phone browser. Press **Start 2D** for a phone/desktop run, or **Start immersive 3D** in a supported HTTPS headset browser. A running 2D scene can be continued in immersive 3D without resetting elapsed time. Starting either participant view also starts the data-only VDO.Ninja scene link. Open the companion URL in another browser; it starts discovery automatically. The landing/trial page does not connect until a participant start or manual link action, while the explicit companion view connects on entry.
 
 ## Validation commands
 
@@ -79,7 +79,7 @@ The workflow supplies the repository base path. If you use a custom domain at th
 | Rendering | Each browser | Same positions/phase from the latest accepted frame |
 | Logging | 2D trial host | Downloadable bounded CSV; never uploaded by this app |
 
-The scene transport follows the Affect Tracker’s remote-Flubber pattern: bundled VDO.Ninja SDK 1.5.5, a data-only public discovery room, anonymous random stream IDs, no media tracks, `ordered: false`, `maxRetransmits: 0`, newest-state backpressure, sequence validation, automatic selection only when one source exists, and an explicit stale state. Schema-v3 JSON includes the complete twelve-agent social state, active audio-cue metadata, and threat visibility rather than Affect Tracker’s 12-byte X/Y frame.
+The scene transport follows the Affect Tracker’s remote-Flubber pattern: bundled VDO.Ninja SDK 1.5.5, a data-only public discovery room, anonymous random stream IDs, no media tracks, `ordered: false`, `maxRetransmits: 0`, newest-state backpressure, sequence validation, automatic selection only when one source exists, and an explicit stale state. Schema-v4 JSON includes the complete twelve-agent social state, avatar style, active audio-cue metadata, one of three threat kinds, and threat visibility rather than Affect Tracker’s 12-byte X/Y frame.
 
 ### Wire data
 
@@ -105,7 +105,7 @@ The automated checks do not qualify a headset study. Before claiming support, re
 - headset model, OS, browser version, and served HTTPS URL;
 - `immersive-vr` and `immersive-ar` entry/exit;
 - virtual background and compositor passthrough behavior;
-- right-controller A-button start/resume, controller-trigger pause, and companion pause/reset;
+- direct immersive launch/start, 2D-to-XR clock continuity, right-controller A-button restart/resume, controller-trigger pause, and companion pause/reset;
 - direct and relayed VDO routes, multi-source selection, disconnect, stale hold, and recovery;
 - 1.8 m visual/behavioral limit, Gentle/Standard timing, CSV download, and no unexpected permissions;
 - at least a 15-minute thermal/network soak and participant-visible comfort review.
@@ -113,7 +113,7 @@ The automated checks do not qualify a headset study. Before claiming support, re
 ## Repository map
 
 - `components/ParticipantScene2D.tsx` — phone-first Canvas renderer and minimalist emotional agents.
-- `components/XrScene.tsx` — optional Three.js/WebXR renderer and procedural agents.
+- `components/XrScene.tsx` — prewarmed optional Three.js/WebXR renderer, local GLB loading, and procedural fallbacks.
 - `lib/scenario.ts` — deterministic scenario timeline and safety contract.
 - `lib/spatial-audio.ts` — opt-in HRTF panning and project-authored vocal/roughness synthesis.
 - `lib/scene-sync.ts` — VDO.Ninja transport, codec, discovery, command validation, and stale handling.
@@ -124,4 +124,4 @@ The automated checks do not qualify a headset study. Before claiming support, re
 
 ## Licenses and provenance
 
-Project-authored code, procedural visuals, and runtime synthesis are MIT licensed. The unmodified VDO.Ninja SDK 1.5.5 distribution and readable source are under MPL-2.0; its license is packaged next to the SDK. See `THIRD_PARTY_NOTICES.md` for pinned hashes and source links, plus [`FOR_AI/documentation/SOURCE_ASSET_REGISTER.md`](FOR_AI/documentation/SOURCE_ASSET_REGISTER.md) and [`FOR_AI/documentation/BIBLIOGRAPHY.md`](FOR_AI/documentation/BIBLIOGRAPHY.md) for implementation-to-source citation mapping.
+Project-authored code, procedural visuals, and runtime synthesis are MIT licensed. The VDO.Ninja SDK is MPL-2.0; Cesium Man is CC BY 4.0 with Cesium credit/trademark notice; the Huntsman Spider is CC0. See `THIRD_PARTY_NOTICES.md`, `public/assets/models/LICENSES.md`, [`FOR_AI/documentation/SOURCE_ASSET_REGISTER.md`](FOR_AI/documentation/SOURCE_ASSET_REGISTER.md), and [`FOR_AI/documentation/BIBLIOGRAPHY.md`](FOR_AI/documentation/BIBLIOGRAPHY.md) for exact hashes, source links, attribution, and validation boundaries.

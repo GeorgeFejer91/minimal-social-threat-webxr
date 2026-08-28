@@ -112,16 +112,17 @@ export function TopdownScene({ snapshot, stale = false }: TopdownSceneProps) {
         }
 
         context.save();
-        context.globalAlpha = snapshot.threat.kind === "shadow" ? 0.22 + snapshot.threat.visibility * 0.78 : 1;
-        context.fillStyle = snapshot.threat.kind === "shadow" ? "rgba(2, 2, 8, .94)" : "#ef6262";
+        const nonHumanThreat = snapshot.threat.kind !== "angry-agent";
+        context.globalAlpha = nonHumanThreat ? 0.22 + snapshot.threat.visibility * 0.78 : 1;
+        context.fillStyle = snapshot.threat.kind === "shadow" ? "rgba(2, 2, 8, .94)" : snapshot.threat.kind === "spider" ? "#321a13" : "#ef6262";
         context.beginPath(); context.arc(threat.x, threat.y, snapshot.threat.kind === "shadow" ? 18 : 15, 0, Math.PI * 2); context.fill();
-        context.strokeStyle = snapshot.threat.kind === "shadow" ? "#ff453a" : "#2a1111";
+        context.strokeStyle = snapshot.threat.kind === "shadow" ? "#ff453a" : snapshot.threat.kind === "spider" ? "#c58b5f" : "#2a1111";
         context.lineWidth = snapshot.threat.kind === "shadow" ? 2 : 3;
         context.beginPath(); context.moveTo(threat.x - 7, threat.y - 3); context.lineTo(threat.x - 2, threat.y); context.stroke();
         context.beginPath(); context.moveTo(threat.x + 7, threat.y - 3); context.lineTo(threat.x + 2, threat.y); context.stroke();
         context.fillStyle = "#fff2dc";
         context.font = "700 11px system-ui";
-        context.fillText(snapshot.threat.kind === "shadow" ? "SHADOW" : "THREAT", threat.x, threat.y - 25);
+        context.fillText(snapshot.threat.kind === "shadow" ? "SHADOW" : snapshot.threat.kind === "spider" ? "SPIDER" : "THREAT", threat.x, threat.y - 25);
         context.restore();
 
         context.fillStyle = "rgba(6, 20, 17, .86)";

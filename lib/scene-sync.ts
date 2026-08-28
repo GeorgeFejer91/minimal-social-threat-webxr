@@ -1,15 +1,15 @@
 import { SCENE_SCHEMA_VERSION, type Intensity, type SceneSnapshot, type ThreatKind } from "./scenario.ts";
 
-export const SCENE_SYNC_ROOM = "minimal_social_threat_v3";
-export const SCENE_SYNC_STREAM_PREFIX = "mst3_scene_";
-export const SCENE_SYNC_CHANNEL = "scenev3";
+export const SCENE_SYNC_ROOM = "minimal_social_threat_v4";
+export const SCENE_SYNC_STREAM_PREFIX = "mst4_scene_";
+export const SCENE_SYNC_CHANNEL = "scenev4";
 export const SCENE_SYNC_STALE_MS = 1_200;
 export const SCENE_SYNC_MAX_HZ = 20;
 
 const MIN_SEND_INTERVAL_MS = 1_000 / SCENE_SYNC_MAX_HZ;
 const HEARTBEAT_MS = 250;
 const DISCOVERY_SETTLE_MS = 350;
-const SDK_OPTIONS = Object.freeze({ password: false, salt: "minimal-social-threat-v3" });
+const SDK_OPTIONS = Object.freeze({ password: false, salt: "minimal-social-threat-v4" });
 
 export type SceneCommand =
   | { version: 1; type: "command"; requestId: string; action: "start" | "pause" | "resume" | "reset" }
@@ -104,7 +104,8 @@ function validSnapshot(value: unknown): value is SceneSnapshot {
     && Number.isFinite(item.elapsedMs) && item.elapsedMs! >= 0
     && ["ready", "baseline", "detected", "approach", "hold", "complete"].includes(String(item.phase))
     && Boolean(item.config
-      && ["shadow", "angry-agent"].includes(item.config.threatKind)
+      && ["shadow", "angry-agent", "spider"].includes(item.config.threatKind)
+      && ["minimal", "human"].includes(item.config.agentStyle)
       && ["gentle", "standard"].includes(item.config.intensity)
       && ["virtual", "passthrough"].includes(item.config.mode))
     && Array.isArray(item.agents) && item.agents.length === 12
@@ -121,11 +122,11 @@ function validSnapshot(value: unknown): value is SceneSnapshot {
     && Array.isArray(item.audioCues) && item.audioCues.length <= 4
     && item.audioCues.every((cue) => typeof cue.id === "string" && cue.id.length <= 128
       && typeof cue.sourceId === "string" && typeof cue.text === "string" && cue.text.length <= 80
-      && ["friendly", "murmur", "acknowledge", "warning", "gasp", "roughness"].includes(cue.kind)
+      && ["friendly", "murmur", "acknowledge", "warning", "gasp", "roughness", "spider-menace"].includes(cue.kind)
       && Number.isFinite(cue.x) && Number.isFinite(cue.z) && Number.isFinite(cue.gain)
       && Number.isFinite(cue.startedAtMs) && Number.isFinite(cue.durationMs))
     && Boolean(item.threat
-      && ["shadow", "angry-agent"].includes(item.threat.kind)
+      && ["shadow", "angry-agent", "spider"].includes(item.threat.kind)
       && Number.isFinite(item.threat.x) && Number.isFinite(item.threat.z)
       && Number.isFinite(item.threat.distance)
       && Number.isFinite(item.threat.visibility) && item.threat.visibility >= 0 && item.threat.visibility <= 1);
@@ -153,7 +154,7 @@ export function decodeSceneCommand(value: unknown): SceneCommand | undefined {
     const command = JSON.parse(value) as Partial<SceneCommand> & { value?: unknown };
     if (command.version !== 1 || command.type !== "command" || typeof command.requestId !== "string" || command.requestId.length > 80) return undefined;
     if (["start", "pause", "resume", "reset"].includes(String(command.action))) return command as SceneCommand;
-    if (command.action === "set-threat" && ["shadow", "angry-agent"].includes(String(command.value))) return command as SceneCommand;
+    if (command.action === "set-threat" && ["shadow", "angry-agent", "spider"].includes(String(command.value))) return command as SceneCommand;
     if (command.action === "set-intensity" && ["gentle", "standard"].includes(String(command.value))) return command as SceneCommand;
     return undefined;
   } catch {

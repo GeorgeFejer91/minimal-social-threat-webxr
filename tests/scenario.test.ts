@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { evaluateScenario, scenarioDurationMs, type ScenarioConfig } from "../lib/scenario.ts";
 
-const config: ScenarioConfig = { threatKind: "shadow", intensity: "standard", mode: "virtual", loop: false };
+const config: ScenarioConfig = { threatKind: "shadow", agentStyle: "minimal", intensity: "standard", mode: "virtual", loop: false };
 
 test("scenario follows the documented phase sequence", () => {
   assert.equal(evaluateScenario(config, 0, "test", { running: false }).phase, "ready");
@@ -81,4 +81,12 @@ test("the shrouded threat begins hidden and fades in monotonically with approach
 
   const comparison = evaluateScenario({ ...config, threatKind: "angry-agent" }, 1_000, "test", { running: true });
   assert.equal(comparison.threat.visibility, 1);
+});
+
+test("spider threat fades in and carries the spider menace cue", () => {
+  const early = evaluateScenario({ ...config, threatKind: "spider" }, 1_000, "test", { running: true });
+  const approach = evaluateScenario({ ...config, threatKind: "spider" }, 18_000, "test", { running: true });
+  assert.equal(early.threat.visibility, 0);
+  assert.ok(approach.threat.visibility > 0);
+  assert.equal(approach.audioCues.find((cue) => cue.sourceId === "threat")?.kind, "spider-menace");
 });

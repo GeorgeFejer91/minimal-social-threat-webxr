@@ -25,3 +25,16 @@ The scene-link lifecycle independently adapts the remote-Flubber transport patte
 - License: MIT
 - Used for the procedural WebGL/WebXR renderer and OrbitControls.
 
+## Cesium Man model
+
+- Source: https://github.com/KhronosGroup/glTF-Sample-Assets/tree/fcc7fba598e7bd07ae9533ba28cf6d2408693d54/Models/CesiumMan
+- Credit: © 2017 Cesium; Cesium for everything.
+- License: Creative Commons Attribution 4.0 International, with the upstream Cesium trademark/logo notice.
+- Packaged file and hash: see `public/assets/models/LICENSES.md`.
+
+## Huntsman Spider model
+
+- Source package: https://github.com/code4fukui/vr-spiders/tree/32aaefa3e540658a75258771c76c2d398f4a473b
+- Original model: “CC0 アシダカグモ 🕷️ Huntsman Spider, H. venatoria” by ffish.asia / floraZia.com.
+- License: CC0 1.0 Universal.
+- Packaged file and hash: see `public/assets/models/LICENSES.md`.

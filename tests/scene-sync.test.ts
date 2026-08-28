@@ -4,7 +4,7 @@ import { evaluateScenario } from "../lib/scenario.ts";
 import { decodeSceneCommand, decodeSceneFrame, encodeSceneFrame, isNewerSequence } from "../lib/scene-sync.ts";
 
 const snapshot = evaluateScenario(
-  { threatKind: "shadow", intensity: "gentle", mode: "passthrough", loop: false },
+  { threatKind: "shadow", agentStyle: "minimal", intensity: "gentle", mode: "passthrough", loop: false },
   9_250,
   "session_test",
   { running: true, lastCommandId: "cmd_ok" },
@@ -27,6 +27,9 @@ test("decoder rejects oversized, malformed, and wrong-version frames", () => {
 test("remote commands are a small explicit allowlist", () => {
   assert.deepEqual(decodeSceneCommand(JSON.stringify({ version: 1, type: "command", requestId: "cmd_1", action: "pause" })), {
     version: 1, type: "command", requestId: "cmd_1", action: "pause",
+  });
+  assert.deepEqual(decodeSceneCommand(JSON.stringify({ version: 1, type: "command", requestId: "cmd_spider", action: "set-threat", value: "spider" })), {
+    version: 1, type: "command", requestId: "cmd_spider", action: "set-threat", value: "spider",
   });
   assert.equal(decodeSceneCommand(JSON.stringify({ version: 1, type: "command", requestId: "cmd_2", action: "run-script", value: "alert(1)" })), undefined);
   assert.equal(decodeSceneCommand(JSON.stringify({ version: 1, type: "command", requestId: "cmd_3", action: "set-threat", value: "dragon" })), undefined);

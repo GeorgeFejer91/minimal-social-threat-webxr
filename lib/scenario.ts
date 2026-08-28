@@ -1,15 +1,17 @@
-export const SCENE_SCHEMA_VERSION = 3 as const;
+export const SCENE_SCHEMA_VERSION = 4 as const;
 
-export type ThreatKind = "shadow" | "angry-agent";
+export type ThreatKind = "shadow" | "angry-agent" | "spider";
+export type AgentStyle = "minimal" | "human";
 export type Intensity = "gentle" | "standard";
 export type SceneMode = "virtual" | "passthrough";
 export type Expression = "calm" | "alert" | "afraid" | "angry";
 export type AgentBehavior = "idle" | "meander" | "talk" | "listen" | "orient" | "startle" | "flee" | "freeze";
 export type ScenarioPhase = "ready" | "baseline" | "detected" | "approach" | "hold" | "complete";
-export type AudioCueKind = "friendly" | "murmur" | "acknowledge" | "warning" | "gasp" | "roughness";
+export type AudioCueKind = "friendly" | "murmur" | "acknowledge" | "warning" | "gasp" | "roughness" | "spider-menace";
 
 export interface ScenarioConfig {
   threatKind: ThreatKind;
+  agentStyle: AgentStyle;
   intensity: Intensity;
   mode: SceneMode;
   loop: boolean;
@@ -181,7 +183,7 @@ export function evaluateScenario(
     : lerp(THREAT_START_Z, -MINIMUM_THREAT_DISTANCE, approach);
   const threatX = 0.18 * Math.sin(seconds * 0.77) * approach;
   const proximity = clamp((THREAT_START_Z - threatZ) / (THREAT_START_Z + MINIMUM_THREAT_DISTANCE));
-  const threatVisibility = config.threatKind === "shadow"
+  const threatVisibility = config.threatKind !== "angry-agent"
     ? (phase === "approach" || phase === "hold" || phase === "complete" ? smoothstep(proximity) : 0)
     : 1;
 
@@ -273,8 +275,8 @@ export function evaluateScenario(
     audioCues.push({
       id: `${sessionId}:threat-loom`,
       sourceId: "threat",
-      kind: "roughness",
-      text: "Threat sound",
+      kind: config.threatKind === "spider" ? "spider-menace" : "roughness",
+      text: config.threatKind === "spider" ? "Looming spider chitter" : "Looming rough drone",
       x: threatX,
       z: threatZ,
       gain: 0.34,

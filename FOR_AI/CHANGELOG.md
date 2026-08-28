@@ -1,5 +1,15 @@
 # Project-memory changelog
 
+## 2026-08-28 — schema v4 direct launch, human avatars, and spider threat
+
+- Removed the readiness checkbox and the separate WebXR-load gate. Added prominent Start 2D and Start immersive 3D controls; immersive entry requests its session directly from the click and starts/continues the shared trial.
+- Prewarmed the lazy Three.js/WebXR renderer invisibly and kept browser-preview visibility independent from engine readiness.
+- Started the data-only VDO.Ninja broadcast automatically on participant start and companion discovery automatically on companion-page entry; retained retry, stop, disconnect, source selection, and readback.
+- Added a versioned crowd-avatar style with the bundled CC BY 4.0 Cesium Man GLB in 3D and a project-authored human-proportioned 2D alternative.
+- Added a third, fading spider threat using the bundled CC0 Huntsman Spider GLB with a procedural fallback.
+- Reworked the threat synthesis into an HRTF-positioned inharmonic drone with 47/83 Hz rough modulation, deterministic band-limited noise, accelerating low pulses, and spider-only clicks under the existing digital gain/compressor boundary.
+- Bumped scene snapshots and VDO.Ninja discovery names to v4. None of the new combined stimuli inherit scientific validation from their motivating literature or source models.
+
 ## 2026-08-28 — schema v3 front crowd, friendly tones, and fading shadow
 
 - Expanded the group from three to six dyads: twelve independently moving agents, all placed in front of the observer.

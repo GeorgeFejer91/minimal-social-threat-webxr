@@ -3,6 +3,8 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { clone as cloneSkeleton } from "three/examples/jsm/utils/SkeletonUtils.js";
 import type { Expression, SceneMode, SceneSnapshot, ThreatKind } from "../lib/scenario";
 import type { SpatialAudioEngine } from "../lib/spatial-audio";
 
@@ -14,6 +16,7 @@ export interface XrSceneHandle {
 interface XrSceneProps {
   snapshot: SceneSnapshot;
   audioEngine?: SpatialAudioEngine;
+  onReady(ready: boolean): void;
   onStartRequest(): void;
   onPauseRequest(): void;
   onSessionChange(active: boolean, mode?: SceneMode): void;
@@ -135,6 +138,7 @@ function makeAgent(color: string) {
   group.userData.leftArm = leftArm;
   group.userData.rightArm = rightArm;
   group.userData.dialogue = dialogue;
+  group.userData.humanAvatar = undefined;
   return group;
 }
 
@@ -175,17 +179,47 @@ function makeThreat() {
   angryAgent.visible = false;
   angryAgent.scale.setScalar(1.16);
   root.add(angryAgent);
+
+  const spider = new THREE.Group();
+  const spiderMaterial = new THREE.MeshStandardMaterial({ color: 0x24130e, roughness: 0.96 });
+  const abdomen = new THREE.Mesh(new THREE.SphereGeometry(0.5, 16, 12), spiderMaterial);
+  abdomen.scale.set(1, 0.58, 1.2);
+  abdomen.position.z = 0.3;
+  spider.add(abdomen);
+  const thorax = new THREE.Mesh(new THREE.SphereGeometry(0.34, 14, 10), spiderMaterial);
+  thorax.scale.y = 0.62;
+  thorax.position.z = -0.38;
+  spider.add(thorax);
+  for (let index = 0; index < 4; index += 1) {
+    for (const side of [-1, 1]) {
+      const legPivot = new THREE.Group();
+      legPivot.position.set(side * 0.24, 0, -0.25 + index * 0.18);
+      legPivot.rotation.y = side * (-0.42 + index * 0.28);
+      legPivot.rotation.z = side * (0.4 + index * 0.05);
+      const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.045, 1.0, 4, 7), spiderMaterial);
+      leg.rotation.z = Math.PI / 2;
+      leg.position.x = side * 0.53;
+      legPivot.add(leg);
+      spider.add(legPivot);
+    }
+  }
+  spider.position.y = 0.22;
+  spider.scale.setScalar(0.92);
+  spider.visible = false;
+  root.add(spider);
   root.userData.shadow = shadow;
   root.userData.aura = aura;
   root.userData.cloakMaterial = cloakMaterial;
   root.userData.hoodMaterial = hoodMaterial;
   root.userData.eyeMaterial = eyeMaterial;
   root.userData.angryAgent = angryAgent;
+  root.userData.spider = spider;
+  root.userData.spiderAsset = undefined;
   return root;
 }
 
 const XrScene = forwardRef<XrSceneHandle, XrSceneProps>(function XrScene(
-  { snapshot, audioEngine, onStartRequest, onPauseRequest, onSessionChange, onStatus },
+  { snapshot, audioEngine, onReady, onStartRequest, onPauseRequest, onSessionChange, onStatus },
   ref,
 ) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -248,6 +282,7 @@ const XrScene = forwardRef<XrSceneHandle, XrSceneProps>(function XrScene(
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
+    let disposed = false;
     const cachedTextures = textureCache.current;
     const agents = agentRefs.current;
     const scene = new THREE.Scene();
@@ -314,6 +349,59 @@ const XrScene = forwardRef<XrSceneHandle, XrSceneProps>(function XrScene(
     scene.add(threat);
     threatRef.current = threat;
 
+    const assetBase = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+    const loader = new GLTFLoader();
+    loader.load(`${assetBase}/assets/models/cesium-man.glb`, (gltf) => {
+      if (disposed) return;
+      const bounds = new THREE.Box3().setFromObject(gltf.scene);
+      const size = bounds.getSize(new THREE.Vector3());
+      const center = bounds.getCenter(new THREE.Vector3());
+      const scale = 1.72 / Math.max(0.01, size.y);
+      for (const agent of agentRefs.current.values()) {
+        const avatar = cloneSkeleton(gltf.scene);
+        avatar.scale.setScalar(scale);
+        avatar.position.set(-center.x * scale, -bounds.min.y * scale, -center.z * scale);
+        avatar.visible = false;
+        avatar.traverse((object) => { object.frustumCulled = false; });
+        agent.add(avatar);
+        agent.userData.humanAvatar = avatar;
+      }
+    }, undefined, () => {
+      if (!disposed) onStatus("The human avatar asset did not load; minimal agents remain available.");
+    });
+    loader.load(`${assetBase}/assets/models/huntsman-spider.glb`, (gltf) => {
+      if (disposed) return;
+      const bounds = new THREE.Box3().setFromObject(gltf.scene);
+      const size = bounds.getSize(new THREE.Vector3());
+      const center = bounds.getCenter(new THREE.Vector3());
+      const scale = 1.95 / Math.max(0.01, size.x, size.z);
+      const asset = new THREE.Group();
+      const model = gltf.scene;
+      const materials: THREE.Material[] = [];
+      model.scale.setScalar(scale);
+      model.position.set(-center.x * scale, -bounds.min.y * scale, -center.z * scale);
+      model.traverse((object) => {
+        if (!(object instanceof THREE.Mesh)) return;
+        const source = Array.isArray(object.material) ? object.material : [object.material];
+        const cloned = source.map((material) => {
+          const copy = material.clone();
+          copy.transparent = true;
+          materials.push(copy);
+          return copy;
+        });
+        object.material = Array.isArray(object.material) ? cloned : cloned[0];
+        object.frustumCulled = false;
+      });
+      asset.add(model);
+      asset.position.y = 0.03;
+      asset.visible = false;
+      threat.add(asset);
+      threat.userData.spiderAsset = asset;
+      threat.userData.spiderMaterials = materials;
+    }, undefined, () => {
+      if (!disposed) onStatus("The CC0 spider asset did not load; the procedural spider fallback remains available.");
+    });
+
     for (let index = 0; index < 2; index += 1) {
       const controller = renderer.xr.getController(index);
       controller.addEventListener("select", () => pauseRef.current());
@@ -324,7 +412,7 @@ const XrScene = forwardRef<XrSceneHandle, XrSceneProps>(function XrScene(
       controls.enabled = false;
       camera.position.set(0, 0, 0);
       onSessionChange(true, activeModeRef.current);
-      onStatus("Immersive scene ready. Press A on the right controller to start; either trigger pauses.");
+      onStatus("Immersive scene ready and trial clock running. A restarts/resumes; either trigger pauses.");
     });
     renderer.xr.addEventListener("sessionend", () => {
       camera.position.set(0, 3.3, 6.8);
@@ -332,7 +420,7 @@ const XrScene = forwardRef<XrSceneHandle, XrSceneProps>(function XrScene(
       controls.target.set(0, 1.1, -1.5);
       applyMode(stateRef.current.config.mode);
       onSessionChange(false);
-      onStatus("Immersive session ended; the optional 3D preview remains available.");
+      onStatus("Immersive session ended; the browser scene and trial clock remain available.");
     });
 
     const resize = () => {
@@ -346,6 +434,7 @@ const XrScene = forwardRef<XrSceneHandle, XrSceneProps>(function XrScene(
     observer.observe(host);
     resize();
     applyMode(stateRef.current.config.mode);
+    onReady(true);
 
     const listenerPosition = new THREE.Vector3();
     const listenerQuaternion = new THREE.Quaternion();
@@ -372,6 +461,16 @@ const XrScene = forwardRef<XrSceneHandle, XrSceneProps>(function XrScene(
         const bob = moving ? Math.abs(gaitWave) * (agentState.behavior === "flee" ? 0.07 : 0.025) : 0;
         agent.position.set(agentState.x, bob, agentState.z);
         agent.rotation.y = agentState.yaw;
+        const humanAvatar = agent.userData.humanAvatar as THREE.Group | undefined;
+        const showHuman = state.config.agentStyle === "human" && Boolean(humanAvatar);
+        (agent.userData.body as THREE.Object3D).visible = !showHuman;
+        (agent.userData.head as THREE.Object3D).visible = !showHuman;
+        (agent.userData.leftArm as THREE.Object3D).visible = !showHuman;
+        (agent.userData.rightArm as THREE.Object3D).visible = !showHuman;
+        if (humanAvatar) {
+          humanAvatar.visible = showHuman;
+          humanAvatar.rotation.z = agentState.behavior === "startle" ? Math.sin(time * 0.024) * 0.07 : 0;
+        }
         const face = agent.userData.face as THREE.Mesh | undefined;
         if (face) {
           const keyName = `${agent.userData.color}-${agentState.expression}`;
@@ -404,21 +503,29 @@ const XrScene = forwardRef<XrSceneHandle, XrSceneProps>(function XrScene(
         threat.position.set(threatState.x, 0, threatState.z);
         const shadow = threat.userData.shadow as THREE.Group;
         const angryAgent = threat.userData.angryAgent as THREE.Group;
+        const proceduralSpider = threat.userData.spider as THREE.Group;
+        const spiderAsset = threat.userData.spiderAsset as THREE.Group | undefined;
         const visibility = THREE.MathUtils.clamp(threatState.visibility, 0, 1);
         shadow.visible = threatState.kind === "shadow" && visibility > 0.005;
         angryAgent.visible = threatState.kind === "angry-agent";
+        proceduralSpider.visible = threatState.kind === "spider" && visibility > 0.005 && !spiderAsset;
+        if (spiderAsset) spiderAsset.visible = threatState.kind === "spider" && visibility > 0.005;
         const cloakMaterial = threat.userData.cloakMaterial as THREE.MeshStandardMaterial;
         const hoodMaterial = threat.userData.hoodMaterial as THREE.MeshStandardMaterial;
         const eyeMaterial = threat.userData.eyeMaterial as THREE.MeshBasicMaterial;
         cloakMaterial.opacity = visibility * 0.94;
         hoodMaterial.opacity = visibility * 0.98;
         eyeMaterial.opacity = THREE.MathUtils.smoothstep(visibility, 0.12, 0.92);
+        for (const material of (threat.userData.spiderMaterials as THREE.Material[] | undefined) ?? []) material.opacity = visibility;
         if (angryAgent.visible) {
           const face = angryAgent.userData.face as THREE.Mesh;
           (face.material as THREE.MeshBasicMaterial).map = texture("threat-angry", () => faceTexture("angry", "#e45d5d", "angry-agent"));
           (face.material as THREE.MeshBasicMaterial).needsUpdate = true;
         }
-        const pulse = 1.05 + Math.sin(time * 0.006) * 0.035;
+        const spiderTwitch = threatState.kind === "spider" ? Math.sin(time * 0.019) * 0.025 : 0;
+        proceduralSpider.rotation.z = spiderTwitch;
+        if (spiderAsset) spiderAsset.rotation.z = spiderTwitch;
+        const pulse = 1.05 + Math.sin(time * (threatState.kind === "spider" ? 0.013 : 0.006)) * (threatState.kind === "spider" ? 0.055 : 0.035);
         threat.scale.setScalar(pulse);
         const aura = threat.userData.aura as THREE.Mesh;
         (aura.material as THREE.MeshBasicMaterial).opacity = visibility * (0.13 + Math.sin(time * 0.0043) * 0.045);
@@ -440,6 +547,8 @@ const XrScene = forwardRef<XrSceneHandle, XrSceneProps>(function XrScene(
     });
 
     return () => {
+      disposed = true;
+      onReady(false);
       observer.disconnect();
       renderer.setAnimationLoop(null);
       void renderer.xr.getSession()?.end();
@@ -457,7 +566,7 @@ const XrScene = forwardRef<XrSceneHandle, XrSceneProps>(function XrScene(
       cachedTextures.clear();
       agents.clear();
     };
-  }, [onSessionChange, onStatus]);
+  }, [onReady, onSessionChange, onStatus]);
 
   useEffect(() => {
     if (!rendererRef.current?.xr.isPresenting) applyMode(snapshot.config.mode);
