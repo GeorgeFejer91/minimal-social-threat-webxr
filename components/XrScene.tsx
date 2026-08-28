@@ -186,11 +186,14 @@ const XrScene = forwardRef<XrSceneHandle, XrSceneProps>(function XrScene(
     cameraRef.current = camera;
 
     const controls = new OrbitControls(camera, renderer.domElement);
+    const coarsePointer = globalThis.matchMedia?.("(pointer: coarse)").matches ?? false;
     controls.target.set(0, 1.1, -1.5);
     controls.enableDamping = true;
     controls.enablePan = false;
+    controls.enabled = !coarsePointer;
     controls.minDistance = 3.5;
     controls.maxDistance = 11;
+    renderer.domElement.style.touchAction = coarsePointer ? "pan-y" : "none";
     controlsRef.current = controls;
 
     scene.add(new THREE.HemisphereLight(0xcaf6e3, 0x253228, 2.1));
@@ -260,7 +263,7 @@ const XrScene = forwardRef<XrSceneHandle, XrSceneProps>(function XrScene(
     });
     renderer.xr.addEventListener("sessionend", () => {
       camera.position.set(0, 3.3, 6.8);
-      controls.enabled = true;
+      controls.enabled = !coarsePointer;
       controls.target.set(0, 1.1, -1.5);
       applyMode(stateRef.current.config.mode);
       onSessionChange(false);

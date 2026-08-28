@@ -31,3 +31,17 @@ test("application source cannot request microphone or camera capture", async () 
   assert.doesNotMatch(source, /getUserMedia|mediaDevices|audio:\s*true|video:\s*true/);
   assert.match(source, /audio: false, video: false/);
 });
+
+test("phone layout uses safe areas, touch targets, dynamic viewport height, and scroll-safe WebGL", async () => {
+  const [css, xrScene] = await Promise.all([
+    readFile(new URL("app/globals.css", root), "utf8"),
+    readFile(new URL("components/XrScene.tsx", root), "utf8"),
+  ]);
+  assert.match(css, /@media \(max-width: 720px\)/);
+  assert.match(css, /safe-area-inset-top/);
+  assert.match(css, /52dvh/);
+  assert.match(css, /min-height:\s*48px/);
+  assert.match(css, /touch-action:\s*pan-y/);
+  assert.match(xrScene, /\(pointer: coarse\)/);
+  assert.match(xrScene, /coarsePointer \? "pan-y" : "none"/);
+});

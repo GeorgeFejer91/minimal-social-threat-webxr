@@ -10,6 +10,10 @@ A small, procedural WebXR research prototype with two browser views:
 - **Companion view:** a realtime top-down diagram, scene readback, and bounded start/pause/reset/configuration controls.
 
 The app supports a virtual dusk-clearing background, WebXR passthrough (`immersive-ar`), and an ordinary desktop preview. No image, audio, or 3D-model downloads are required.
+The landing, headset setup, and top-down companion views also collapse to a
+safe-area-aware single-column phone layout with touch-sized controls. On a
+coarse-pointer phone, the WebGL preview yields vertical gestures to page
+scrolling instead of trapping the page.
 
 ## Important research boundary
 
