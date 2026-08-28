@@ -42,6 +42,10 @@ The patched source commit `3825279` was then tested from `https://georgefejer91.
 
 This evidence establishes implementation behavior only for the recorded device/browser/source combination. Passthrough MR, controller mappings, network-loss recovery, prolonged soak, physical-boundary safety, construct validity, emotional effect, comfort, acoustic calibration, and participant readiness remain unverified.
 
+## Silent-immersive evidence recorded 2026-08-29
+
+Source `292c95c` was loaded from the public HTTPS headset route on the same Quest 3 / Quest Browser 149 device class. The page reported audio off, a trusted browser touch entered immersive VR, and the runtime status reported the trial running silently. Fresh Android audio-service readback during the active immersive session listed no started audio player for Quest Browser or Meta VR Shell. Navigating out of XR ended the session; Meta VR Shell then restarted its own `USAGE_GAME` AAudio stream. This separates the audible Home/environment background stream from application audio and establishes that the observed patched immersive run created no active playback stream. It does not prove acoustic silence on other Horizon/browser versions or replace physical volume/acoustic checks.
+
 ## Claims that must not be made yet
 
 - “Scientifically validated threat stimulus.”

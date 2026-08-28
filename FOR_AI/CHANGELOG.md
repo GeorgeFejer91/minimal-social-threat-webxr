@@ -5,6 +5,7 @@
 - Confirmed from live Quest audio-service readback that the currently audible continuous background stream belonged to Meta VR Shell/Home rather than Quest Browser. No headset audio setting was changed during that diagnostic.
 - Kept the application audio state off by default and made every immersive VR/MR entry explicitly dispose any prior 2D Web Audio graph before requesting the XR session, without adding a new preference.
 - Restricted the existing opt-in audio action and engine attachment to non-immersive 2D use, and added a build-output regression gate for restored-tab audio carryover.
+- Accepted the public source `292c95c` on Quest Browser: the trusted VR entry reported a silent run and Android listed no started audio player during immersion; Meta VR Shell resumed its own game-audio stream only after XR exit.
 
 ## 2026-08-28 — Quest XR clock repair and bidirectional PC operator bridge
 
