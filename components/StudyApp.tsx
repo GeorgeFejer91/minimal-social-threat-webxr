@@ -278,7 +278,10 @@ export default function StudyApp() {
       const detail = (event as Event & { detail: ReturnType<SceneReceiver["snapshot"]> }).detail;
       setReceiverState(detail);
       const ack = detail.latest?.snapshot.lastCommandId;
-      if (ack) setPendingCommand((current) => current === ack ? "" : current);
+      if (ack) {
+        setPendingCommand((current) => current === ack ? "" : current);
+        setCompanionStatus("Host applied the command; live readback confirmed.");
+      } else setCompanionStatus((current) => current.startsWith("Command sent") ? current : "Live scene readback received from the trial host.");
     };
     receiver.addEventListener("statechange", receiverStateHandler);
     receiver.addEventListener("frame", frameHandler);

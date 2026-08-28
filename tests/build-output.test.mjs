@@ -61,6 +61,7 @@ test("2D trial is primary and direct immersive entry uses the prewarmed lazy eng
   assert.match(studyApp, /className=\{showXrPreview \? "mini-xr-preview" : "xr-prewarm"\}/);
   assert.match(studyApp, /shouldMountXr = showXrPreview \|\| xrSupport\.vr \|\| xrSupport\.ar/);
   assert.match(studyApp, /void startBroadcast\(\)/);
+  assert.match(studyApp, /Host applied the command; live readback confirmed/);
   assert.doesNotMatch(studyApp, /contentReady|trial-ready/);
   assert.match(participantScene, /snapshot\.agents/);
   assert.match(participantScene, /drawThreat/);
