@@ -2,6 +2,10 @@
 
 A small, procedural WebXR research prototype with two browser views:
 
+**Live site:** https://georgefejer91.github.io/minimal-social-threat-webxr/
+
+**Direct views:** [headset scene](https://georgefejer91.github.io/minimal-social-threat-webxr/?view=headset) · [companion view](https://georgefejer91.github.io/minimal-social-threat-webxr/?view=companion)
+
 - **Headset scene:** six minimalist social agents surround the observer; a stylized tiger or angry agent appears, approaches, and causes the group to display alert/fear expressions and avoid it.
 - **Companion view:** a realtime top-down diagram, scene readback, and bounded start/pause/reset/configuration controls.
 
