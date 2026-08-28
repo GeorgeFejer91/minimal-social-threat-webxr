@@ -65,6 +65,8 @@ Public source `7346177` was loaded into the existing dedicated-host tab on the s
 
 The headset was not being worn and repeatedly returned to Meta Home/sleep even though the pre-existing stay-awake flag read true. Consequently the background page clock remained at 0.0 seconds after the remotely confirmed Start, and this attempt was excluded from foreground/immersive rendering acceptance. No remote XR entry was attempted: the trusted confirmation still belongs to a wearer-side action. The run changed no volume, audio, proximity, or persistent power setting; its temporary debug forward was removed. Earlier source `959bf88` remains the latest physical-wearer immersive-audio lifecycle evidence, while a current-source wearer-confirmed immersive visual pass remains pending.
 
+The main-stage sizing defect discovered during that run was fixed and republished as source `f4c432a`, GitHub Pages deployment `416f6aa`. On the same Quest Browser tab, selecting **3D view** then produced an 831×518 WebGL drawing buffer inside the 832×518 stage instead of retaining the hidden 2×2 prewarm buffer. The WebGL context was live, the page still reported VR/MR support, and no JavaScript exception occurred. This is current-source Quest evidence for the ordinary Three.js browser renderer and its 2D→3D transition; it is not a substitute for a wearer-confirmed immersive compositor/session pass. The temporary diagnostic forward was removed again.
+
 ## Claims that must not be made yet
 
 - “Scientifically validated threat stimulus.” A methods-derived reconstruction and a PPS Kit-derived localization layer do not transfer validation to this combined scenario.
