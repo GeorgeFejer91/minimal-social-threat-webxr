@@ -26,8 +26,8 @@ The same authoritative scene snapshot drives the 2D participant view, optional T
 - A generic shrouded shadow that fades in with proximity, an immediately visible angry-agent comparison, or a fading CC0 Huntsman Spider condition.
 - Gentle 18-second or standard 12-second approach after the detection interval.
 - Four-second safety-distance hold and deterministic completion.
-- Captioned, procedurally synthesized friendly dyadic cues using smooth envelopes and simple 5:4 and 3:2 harmonic ratios as a study-motivated—not universal or pre-validated—positive/low-tension mapping.
-- Threat sound using inharmonic carriers, 47/83 Hz rough amplitude modulation, deterministic noise and accelerating low pulses, rendered from the threat position with Web Audio HRTF panning; spider-only clicks add a distinct condition cue.
+- Captioned friendly dyadic cues, with optional 2D-only synthesis behind an explicit opt-in. Audio is off by default, and immersive entry closes any earlier browser-audio graph rather than carrying it into VR/MR.
+- When deliberately enabled in 2D, threat sound uses inharmonic carriers, 47/83 Hz rough amplitude modulation, deterministic noise and accelerating low pulses rendered from the threat position with Web Audio HRTF panning; spider-only clicks add a distinct condition cue.
 - Data-only VDO.Ninja v2 operator synchronization, bounded command receipts and XR readback, and bounded CSV export; scenario snapshots remain schema v4.
 
 ## Non-scope
@@ -46,7 +46,7 @@ The same authoritative scene snapshot drives the 2D participant view, optional T
 - A participant can configure, directly start, pause, reset, and complete the 2D trial on a smartphone without a checkbox gate.
 - Supported headsets can directly start VR and, when supported, passthrough MR over HTTPS; an active 2D run can continue with its elapsed time preserved.
 - Agents visibly face partners, alternate roles, move asynchronously, react at different times, and avoid the threat.
-- Enabled headphone audio is HRTF-positioned and the threat source grows more salient as its distance decreases.
+- The default trial is silent. Deliberately enabled 2D headphone audio is HRTF-positioned, while immersive VR/MR remains silent without an additional preference.
 - The threat never crosses 1.8 m in the authoritative state.
 - A separately opened PC operator browser auto-discovers the data-only VDO.Ninja scene, can receive the full versioned scene and host runtime state, and can issue only allowlisted commands with exact bounded receipts.
 - The dedicated headset role advertises itself before the scenario starts; PC start/pause/resume/reset and configuration changes are reflected on both displays, while local headset/controller actions return through the same authoritative readback.

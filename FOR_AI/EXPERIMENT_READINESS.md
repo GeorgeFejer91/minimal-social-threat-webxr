@@ -17,7 +17,7 @@
 - Remote VR/MR requests stage a local headset confirmation to preserve WebXR's trusted-user-activation boundary; they cannot silently enter immersive mode.
 - Three threat renderings and two avatar styles are explicit versioned configuration fields.
 - Shared cubic-Bézier face geometry has seven compatible end states, deterministic pairwise/weighted morphing, and a tested front-facing sphere projection; this establishes software behavior, not recognition validity.
-- Explicit audio opt-in, HRTF panning, capped digital gain, and no microphone/camera request.
+- Silent-by-default operation: optional audio requires an explicit 2D click, while every immersive entry closes any prior Web Audio graph and keeps VR/MR silent. The dormant synthesis retains HRTF panning and capped digital gain; no microphone/camera is requested.
 
 ## Required before study use
 

@@ -132,6 +132,15 @@ test("spatial threat audio uses HRTF looming, roughness, and bounded acceleratin
   assert.match(audio, /\[3 \/ 2, 0\.18\]/);
 });
 
+test("immersive entry is silent by default and cannot inherit a prior 2D audio graph", async () => {
+  const study = await readFile(new URL("components/StudyApp.tsx", root), "utf8");
+  assert.match(study, /const \[audioEnabled, setAudioEnabled\] = useState\(false\)/);
+  assert.match(study, /const silenceSpatialAudio = useCallback\([\s\S]*?audioEngine\.dispose\(\)[\s\S]*?setAudioEnabled\(false\)/);
+  assert.match(study, /const enterImmersive = useCallback[\s\S]*?silenceSpatialAudio\(\)[\s\S]*?await xrRef\.current\.enter\(mode\)/);
+  assert.match(study, /audioEngine=\{audioEnabled && !xrActive \? audioEngine : undefined\}/);
+  assert.doesNotMatch(study, /next immersive session/);
+});
+
 test("external human and spider assets are pinned and shipped locally", async () => {
   const expected = new Map([
     ["cesium-man.glb", "b7001eaeea8254bd44773bcd247e78696d94169388fbb2a1800fc69434e777d9"],
