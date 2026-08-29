@@ -7,6 +7,7 @@
 - Preserved the single scenario clock, generated HRTF cue schedule, controls, logging, and bridge state across both views. A non-WebGL browser can still monitor and control the planar state but cannot display the complete 3D visual stimulus.
 - Updated responsive sizing so the planar Canvas fills the main stage and still yields vertical touch gestures for page scrolling.
 - Passed 42 unit tests, 18 production/source checks, TypeScript, lint, the production build, and diff integrity. A local production-browser pass confirmed the default **Top-down** selection, full-stage planar layout, clock/cue progression and automatic audio after **Start preview**, state continuity when switching to **3D view**, and audio teardown after **Reset**. The available browser exposed no WebGL, so it verified the explicit planar fallback rather than the unchanged 3D pixels.
+- Published source `a778cdd` as GitHub Pages deployment `42f83e3`. Cache-busted public checks confirmed the new default and controls, absence of the legacy 2D control, Start/Reset clock-and-audio lifecycle, the dedicated-headset route, the companion route, schema v6, and no public-route console errors. The verification browser's WebGL-disabled limitation remains unchanged.
 
 ## 2026-08-29 — continuous threat and social-behavior ramp
 
