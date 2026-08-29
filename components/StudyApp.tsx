@@ -48,7 +48,7 @@ function phaseLabel(phase: SceneSnapshot["phase"]) {
   return {
     ready: "Ready",
     baseline: "Social baseline",
-    detected: "Threat detected",
+    detected: "Unease emerging",
     approach: "Threat approaching",
     hold: "Safety-distance hold",
     complete: "Complete",
@@ -941,8 +941,8 @@ export default function StudyApp() {
                   </label>
                   <label>Intensity
                     <select value={config.intensity} disabled={xrActive || (scene.running && !isScenarioComplete(scene))} onChange={(event) => updateConfig("intensity", event.target.value as Intensity)}>
-                      <option value="gentle">Gentle · 18 s approach</option>
-                      <option value="standard">Standard · 12 s approach</option>
+                      <option value="gentle">Gentle · 36 s gradual approach</option>
+                      <option value="standard">Standard · 26 s gradual approach</option>
                     </select>
                   </label>
                   <label>Preview environment
@@ -1111,7 +1111,7 @@ export default function StudyApp() {
         </section>
       )}
 
-      <footer><span>Social Threat Lab · schema v5</span><span>Six social dyads · HRTF audio · optional WebXR · VDO.Ninja SDK 1.5.5</span></footer>
+      <footer><span>Social Threat Lab · schema v6</span><span>Six social dyads · HRTF audio · optional WebXR · VDO.Ninja SDK 1.5.5</span></footer>
     </main>
   );
 }

@@ -750,8 +750,9 @@ const XrScene = forwardRef<XrSceneHandle, XrSceneProps>(function XrScene(
         const agent = agentRefs.current.get(agentState.id);
         if (!agent) continue;
         const gaitWave = Math.sin(agentState.gait * Math.PI * 2);
-        const moving = agentState.behavior === "meander" || agentState.behavior === "flee";
-        const bob = moving ? Math.abs(gaitWave) * (agentState.behavior === "flee" ? 0.07 : 0.025) : 0;
+        const motionEnergy = THREE.MathUtils.clamp(agentState.locomotion, 0, 1);
+        const moving = motionEnergy > 0.025;
+        const bob = moving ? Math.abs(gaitWave) * (0.012 + motionEnergy * 0.055) : 0;
         agent.position.set(agentState.x, bob, agentState.z);
         agent.rotation.y = agentState.yaw;
         const humanAvatar = agent.userData.humanAvatar as THREE.Group | undefined;
@@ -762,17 +763,20 @@ const XrScene = forwardRef<XrSceneHandle, XrSceneProps>(function XrScene(
         (agent.userData.rightArm as THREE.Object3D).visible = !showHuman;
         if (humanAvatar) {
           humanAvatar.visible = showHuman;
-          humanAvatar.rotation.z = agentState.behavior === "startle" ? Math.sin(time * 0.024) * 0.07 : 0;
+          humanAvatar.rotation.x = -agentState.avoidance * motionEnergy * 0.055;
+          humanAvatar.rotation.z = agentState.behavior === "startle"
+            ? Math.sin(time * 0.018) * 0.035 * agentState.awareness
+            : 0;
         }
         const faceSurface = agent.userData.faceSurface as FaceSurface | undefined;
         if (faceSurface) updateFaceSurface(faceSurface, agentState.expression, agentState.fear);
         const leftArm = agent.userData.leftArm as THREE.Group;
         const rightArm = agent.userData.rightArm as THREE.Group;
         const head = agent.userData.head as THREE.Group;
-        leftArm.rotation.x = moving ? gaitWave * 0.58 : agentState.behavior === "startle" ? -0.9 : 0;
-        rightArm.rotation.x = moving ? -gaitWave * 0.58 : agentState.behavior === "startle" ? -0.9 : 0;
+        leftArm.rotation.x = moving ? gaitWave * 0.62 * motionEnergy : agentState.behavior === "startle" ? -0.72 * agentState.awareness : 0;
+        rightArm.rotation.x = moving ? -gaitWave * 0.62 * motionEnergy : agentState.behavior === "startle" ? -0.72 * agentState.awareness : 0;
         rightArm.rotation.z = agentState.behavior === "talk" ? -0.36 - Math.sin(agentState.gesture * Math.PI * 2) * 0.2 : 0;
-        leftArm.rotation.z = agentState.behavior === "startle" ? 0.52 : 0;
+        leftArm.rotation.z = agentState.behavior === "startle" ? 0.52 * agentState.awareness : 0;
         head.rotation.x = agentState.behavior === "listen" ? Math.sin(agentState.gesture * Math.PI * 2) * 0.08 : agentState.fear * 0.12;
         head.rotation.z = agentState.behavior === "listen" ? 0.08 : 0;
 

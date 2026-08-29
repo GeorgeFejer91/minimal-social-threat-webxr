@@ -1,5 +1,15 @@
 # Project-memory changelog
 
+## 2026-08-29 — continuous threat and social-behavior ramp
+
+- Extended the uninterrupted positive social baseline from 8 to 12 seconds and expanded the generated exchange into friendly calls, replies/acknowledgements, and soft group-like murmurs with smooth three-part pitch contours.
+- Replaced the stationary detected block plus short approach with one continuous threat trajectory: 26 seconds in Standard or 36 seconds in Gentle. The first six seconds remain an emerging-awareness label for logs, but the threat already moves, fades in, and emits its approach-localizer.
+- Spread direct detection and dyadic alarm across the early approach. Schema v6 adds continuous bounded `awareness`, `avoidance`, and `locomotion` fields alongside fear, allowing social movement, gaze, expression, displacement, and labels to overlap rather than jump in lockstep.
+- Enlarged and diversified lateral/depth escape paths. Locomotion is derived from actual position deltas and drives 2D stride/motion marks plus Three.js bob/arm motion; hold/complete clamp it to zero, so a categorical flee state cannot make stationary figures run in place.
+- Bound articulated-spider gait phase to threat distance progress and gait amplitude to approach speed. The spider walks during emerging awareness and approach and plants its legs when translation stops.
+- Added unit and source-integration checks for extended social exchange, continuous detected-phase motion, monotonic response/displacement buildup, crowd spread, settled locomotion, schema-v6 transport, conversational contour synthesis, and motion-scaled renderers. Perceptual naturalness, pleasantness, gradualism, and physical-Quest behavior still require validation.
+- Passed 42 unit tests, 18 production/source checks, the production build, lint, and the diff-integrity check. A local 2D browser pass inspected the 7.3-second social baseline, 17.6-second emerging-awareness state, 27.2-second mid-approach spread, and 39.6-second safety hold: distance decreased from 16.0 m to 13.9 m to 7.3 m to 1.8 m, the crowd widened progressively, and the final frame showed settled figures. The available verification browser had WebGL disabled, so the changed Three.js motion remains code-tested but still needs WebGL/Quest visual acceptance.
+
 ## 2026-08-29 — GitHub-only delivery and full browser preview
 
 - Made GitHub the sole source authority and GitHub Pages the sole current website target. Removed `.openai/hosting.json`; the existing private ChatGPT Sites publication is now a legacy snapshot and is not updated by this project workflow.

@@ -1,4 +1,4 @@
-import type { Intensity, ScenarioPhase } from "./scenario";
+import { SCENARIO_TIMING, type Intensity, type ScenarioPhase } from "./scenario.ts";
 
 export type SpiderLegSide = -1 | 1;
 
@@ -18,7 +18,7 @@ export interface SpiderMotionPose {
   mandible: number;
 }
 
-const APPROACH_START_MS = 11_000;
+const APPROACH_START_MS = SCENARIO_TIMING.baselineEndSeconds * 1_000;
 const PAIR_ATTACHMENT_Z = [0.34, 0.12, -0.12, -0.34] as const;
 const PAIR_SWEEP = [-0.78, -0.29, 0.29, 0.78] as const;
 
@@ -31,9 +31,16 @@ export function spiderMotionPose(
   phase: ScenarioPhase,
   intensity: Intensity,
 ): SpiderMotionPose {
-  const locomotion = phase === "approach" ? 1 : phase === "hold" ? 0.12 : 0;
-  const angularRate = intensity === "gentle" ? 0.0068 : 0.0086;
-  const cycle = Math.max(0, elapsedMs - APPROACH_START_MS) * angularRate;
+  const approachEndMs = (intensity === "gentle"
+    ? SCENARIO_TIMING.gentleApproachEndSeconds
+    : SCENARIO_TIMING.standardApproachEndSeconds) * 1_000;
+  const linearProgress = Math.min(1, Math.max(0, (elapsedMs - APPROACH_START_MS) / (approachEndMs - APPROACH_START_MS)));
+  const smoothProgress = linearProgress * linearProgress * (3 - 2 * linearProgress);
+  const distanceProgress = linearProgress * 0.28 + smoothProgress * 0.72;
+  const normalizedSpeed = (0.28 + 4.32 * linearProgress * (1 - linearProgress)) / 1.36;
+  const locomotion = phase === "detected" || phase === "approach" ? normalizedSpeed : 0;
+  const cyclesAcrossApproach = intensity === "gentle" ? 28 : 22;
+  const cycle = distanceProgress * cyclesAcrossApproach * Math.PI * 2;
   const legs: SpiderLegPose[] = [];
 
   for (const side of [-1, 1] as const) {

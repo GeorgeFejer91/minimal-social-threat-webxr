@@ -72,12 +72,36 @@ test("main trial viewport switches between live 2D and 3D renderers", async () =
   assert.doesNotMatch(studyApp, /contentReady|trial-ready/);
   assert.match(participantScene, /snapshot\.agents/);
   assert.match(participantScene, /drawThreat/);
-  assert.match(participantScene, /agent\.expression === "afraid"/);
+  assert.match(participantScene, /agent\.locomotion/);
   assert.match(css, /\.participant-canvas/);
   assert.match(css, /\.browser-xr-view/);
   assert.match(css, /\.scene-view-switch/);
   assert.match(css, /\.trial-transport/);
   assert.match(xrScene, /if \(!visible\) return;[\s\S]*?renderer\.setSize\(rect\.width, rect\.height, false\);[\s\S]*?\}, \[visible\]\)/);
+});
+
+test("gradual threat pressure drives authoritative displacement and motion-scaled animation", async () => {
+  const [scenario, sceneSync, participantScene, xrScene, audio] = await Promise.all([
+    readFile(new URL("lib/scenario.ts", root), "utf8"),
+    readFile(new URL("lib/scene-sync.ts", root), "utf8"),
+    readFile(new URL("components/ParticipantScene2D.tsx", root), "utf8"),
+    readFile(new URL("components/XrScene.tsx", root), "utf8"),
+    readFile(new URL("lib/spatial-audio.ts", root), "utf8"),
+  ]);
+  assert.match(scenario, /SCENE_SCHEMA_VERSION = 6/);
+  assert.match(scenario, /baselineEndSeconds: 12/);
+  assert.match(scenario, /standardApproachEndSeconds: 38/);
+  assert.match(scenario, /gentleApproachEndSeconds: 48/);
+  assert.match(scenario, /threatApproachAt/);
+  assert.match(scenario, /awareness/);
+  assert.match(scenario, /avoidance/);
+  assert.match(scenario, /locomotion/);
+  assert.match(sceneSync, /agent\.locomotion < 0 \|\| agent\.locomotion > 1/);
+  assert.match(participantScene, /stride = gaitWave[\s\S]*?agent\.locomotion/);
+  assert.match(xrScene, /motionEnergy = THREE\.MathUtils\.clamp\(agentState\.locomotion/);
+  assert.match(xrScene, /gaitWave \* 0\.62 \* motionEnergy/);
+  assert.match(audio, /const contour = cue\.kind === "murmur"/);
+  assert.match(audio, /phraseGain\.gain/);
 });
 
 test("immersive launch uses XR frames, layers, local confirmation, and controller actions", async () => {
@@ -146,6 +170,7 @@ test("spatial threat audio separates PPS localization, 70 Hz roughness, and cont
   assert.match(protocol, /sourceHeightPolicyId/);
   assert.match(protocol, /calibrationStatus: "relative-digital-level-only; no dB SPL claim"/);
   assert.match(audio, /makeFriendlyCue/);
+  assert.match(audio, /cue\.kind === "friendly" \|\| cue\.kind === "murmur" \|\| cue\.kind === "acknowledge"/);
   assert.match(audio, /\[5 \/ 4, 0\.27\]/);
   assert.match(audio, /\[3 \/ 2, 0\.18\]/);
 });

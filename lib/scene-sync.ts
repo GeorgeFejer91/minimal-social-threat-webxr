@@ -203,7 +203,10 @@ function normalizeAgent(value: unknown): SceneSnapshot["agents"][number] | undef
     || !["idle", "meander", "talk", "listen", "orient", "startle", "flee", "freeze"].includes(agent.behavior)
     || (agent.targetId !== undefined && !isBoundedId(agent.targetId, 40))
     || typeof agent.speaking !== "boolean" || typeof agent.detectedThreat !== "boolean"
+    || !isFiniteNumber(agent.awareness) || agent.awareness < 0 || agent.awareness > 1
     || !isFiniteNumber(agent.fear) || agent.fear < 0 || agent.fear > 1
+    || !isFiniteNumber(agent.avoidance) || agent.avoidance < 0 || agent.avoidance > 1
+    || !isFiniteNumber(agent.locomotion) || agent.locomotion < 0 || agent.locomotion > 1
     || !isFiniteNumber(agent.gait) || !isFiniteNumber(agent.gesture)) return undefined;
   return {
     id: agent.id,
@@ -215,7 +218,10 @@ function normalizeAgent(value: unknown): SceneSnapshot["agents"][number] | undef
     ...(agent.targetId === undefined ? {} : { targetId: agent.targetId }),
     speaking: agent.speaking,
     detectedThreat: agent.detectedThreat,
+    awareness: agent.awareness,
     fear: agent.fear,
+    avoidance: agent.avoidance,
+    locomotion: agent.locomotion,
     gait: agent.gait,
     gesture: agent.gesture,
   };

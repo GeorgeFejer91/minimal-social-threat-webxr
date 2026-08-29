@@ -145,14 +145,18 @@ function drawAgent(
 
   if (snapshot.config.agentStyle === "human") {
     const skin = ["#bd8667", "#d7a281", "#8f5f49", "#e2b696"][index % 4];
+    const gaitWave = Math.sin(agent.gait * Math.PI * 2);
+    const stride = gaitWave * size * 0.18 * agent.locomotion;
+    const leftLift = Math.max(0, gaitWave) * size * 0.065 * agent.locomotion;
+    const rightLift = Math.max(0, -gaitWave) * size * 0.065 * agent.locomotion;
     context.strokeStyle = color;
     context.lineWidth = size * 0.19;
     context.lineCap = "round";
     context.beginPath();
     context.moveTo(point.x - size * 0.14, point.y + size * 0.62);
-    context.lineTo(point.x - size * 0.18, point.y + size * 1.02);
+    context.lineTo(point.x - size * 0.18 + stride, point.y + size * 1.02 - leftLift);
     context.moveTo(point.x + size * 0.14, point.y + size * 0.62);
-    context.lineTo(point.x + size * 0.18, point.y + size * 1.02);
+    context.lineTo(point.x + size * 0.18 - stride, point.y + size * 1.02 - rightLift);
     context.stroke();
     context.fillStyle = color;
     context.beginPath();
@@ -206,13 +210,14 @@ function drawAgent(
     drawFace(context, point.x, point.y, size, agent.expression, agent.fear);
   }
 
-  if (agent.expression === "afraid") {
+  if (agent.locomotion > 0.1 && agent.avoidance > 0.12) {
     const awayX = agent.x - snapshot.threat.x;
     const awayZ = agent.z - snapshot.threat.z;
     const length = Math.max(0.01, Math.hypot(awayX, awayZ));
-    const cueX = (awayX / length) * size * 0.7;
-    const cueY = (awayZ / length) * size * 0.32;
-    context.strokeStyle = "rgba(255, 218, 144, .72)";
+    const motionScale = 0.38 + agent.locomotion * 0.62;
+    const cueX = (awayX / length) * size * 0.7 * motionScale;
+    const cueY = (awayZ / length) * size * 0.32 * motionScale;
+    context.strokeStyle = `rgba(255, 218, 144, ${0.2 + agent.locomotion * 0.48})`;
     context.lineWidth = Math.max(1.5, size * 0.04);
     for (let offset = 0; offset < 2; offset += 1) {
       context.beginPath();

@@ -44,15 +44,18 @@ function frameWith(hostValue: unknown, extra: Record<string, unknown> = {}) {
   return JSON.stringify({ version: 2, type: "scene", sequence: 42, snapshot, host: hostValue, ...extra });
 }
 
-test("v2 scene frames round-trip schema-v5 state and strict headset readback", () => {
+test("v2 scene frames round-trip schema-v6 gradual-motion state and strict headset readback", () => {
   const frame = decodeSceneFrame(encodeSceneFrame(42, snapshot, host));
   assert.equal(frame?.version, 2);
   assert.equal(frame?.sequence, 42);
-  assert.equal(frame?.snapshot.schemaVersion, 5);
+  assert.equal(frame?.snapshot.schemaVersion, 6);
   assert.equal(frame?.snapshot.audioProtocol.id, "pps-separated-spatial-threat-cues-v1");
   assert.equal(frame?.snapshot.sessionId, "session_test");
   assert.equal(frame?.snapshot.lastCommandId, "cmd_ok");
   assert.equal(frame?.snapshot.agents.length, 12);
+  assert.equal(typeof frame?.snapshot.agents[0]?.awareness, "number");
+  assert.equal(typeof frame?.snapshot.agents[0]?.avoidance, "number");
+  assert.equal(typeof frame?.snapshot.agents[0]?.locomotion, "number");
   assert.deepEqual(frame?.host, host);
   assert.notStrictEqual(frame?.host, host);
   assert.notStrictEqual(frame?.host.xr, host.xr);
@@ -71,6 +74,13 @@ test("frame decoder rejects oversized, malformed, wrong-version, and expanded en
     type: "scene",
     sequence: 42,
     snapshot: { ...snapshot, audioProtocol: { ...snapshot.audioProtocol, bundledRecording: true } },
+    host,
+  })), undefined);
+  assert.equal(decodeSceneFrame(JSON.stringify({
+    version: 2,
+    type: "scene",
+    sequence: 42,
+    snapshot: { ...snapshot, agents: snapshot.agents.map((agent, index) => index === 0 ? { ...agent, locomotion: 1.5 } : agent) },
     host,
   })), undefined);
 });

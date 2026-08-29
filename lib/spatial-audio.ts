@@ -198,7 +198,9 @@ export class SpatialAudioEngine {
 
     if (cue.kind === "pps-looming-bursts") this.makePpsBurstTrain(envelope, cue, elapsedMs, now, stopAt);
     else if (cue.kind === "roughness" || cue.kind === "spider-menace") this.makeRoughThreat(envelope, now, stopAt);
-    else if (cue.kind === "friendly") this.makeFriendlyCue(envelope, cue, now, stopAt);
+    else if (cue.kind === "friendly" || cue.kind === "murmur" || cue.kind === "acknowledge") {
+      this.makeFriendlyCue(envelope, cue, now, stopAt);
+    }
     else this.makeVocalCue(envelope, cue, now, stopAt);
 
     this.seen.add(cue.id);
@@ -215,19 +217,37 @@ export class SpatialAudioEngine {
   private makeFriendlyCue(destination: AudioNode, cue: AudioCue, start: number, stop: number) {
     const context = this.context!;
     const alternate = cue.sourceId.charCodeAt(cue.sourceId.length - 1) % 2 === 0;
-    const root = alternate ? 240 : 220;
+    const root = (alternate ? 232 : 214) * (cue.kind === "murmur" ? 0.9 : cue.kind === "acknowledge" ? 0.97 : 1);
+    const contour = cue.kind === "murmur"
+      ? [1, 1.018, 0.985]
+      : cue.kind === "acknowledge"
+        ? [1.035, 0.982, 1.002]
+        : [1, 1.065, 1.026];
+    const duration = Math.max(0.12, stop - start);
+    const phraseGain = context.createGain();
+    phraseGain.gain.setValueAtTime(0.0001, start);
+    for (let syllable = 0; syllable < 3; syllable += 1) {
+      const syllableStart = start + duration * (syllable * 0.31);
+      const peak = Math.min(stop - 0.025, syllableStart + duration * 0.12);
+      const release = Math.min(stop - 0.012, syllableStart + duration * 0.26);
+      phraseGain.gain.linearRampToValueAtTime(syllable === 1 ? 0.82 : 0.7, peak);
+      phraseGain.gain.linearRampToValueAtTime(0.22, release);
+    }
+    phraseGain.gain.linearRampToValueAtTime(0.0001, stop);
+    phraseGain.connect(destination);
 
-    // Smooth attacks, moderate pitch, and simple harmonic ratios are an explicit
-    // study-motivated operationalization of positive/low-tension affect. They are
-    // not treated as a universal or already validated "friendliness" label.
+    // Smooth attacks, moderate pitch, consonant ratios, and speech-like pitch
+    // contours are an explicit study-motivated low-tension prototype. They are
+    // not treated as universal or already validated "friendliness" cues.
     for (const [ratio, amount] of [[1, 0.48], [5 / 4, 0.27], [3 / 2, 0.18]] as const) {
       const oscillator = context.createOscillator();
       const voiceGain = context.createGain();
       oscillator.type = ratio === 1 ? "triangle" : "sine";
-      oscillator.frequency.setValueAtTime(root * ratio, start);
-      oscillator.frequency.linearRampToValueAtTime(root * ratio * 1.045, stop);
+      oscillator.frequency.setValueAtTime(root * ratio * contour[0], start);
+      oscillator.frequency.linearRampToValueAtTime(root * ratio * contour[1], start + duration * 0.46);
+      oscillator.frequency.linearRampToValueAtTime(root * ratio * contour[2], stop);
       voiceGain.gain.value = amount;
-      oscillator.connect(voiceGain).connect(destination);
+      oscillator.connect(voiceGain).connect(phraseGain);
       oscillator.start(start);
       oscillator.stop(stop);
     }
