@@ -6,6 +6,7 @@ import type { SceneSnapshot } from "../lib/scenario";
 interface TopdownSceneProps {
   snapshot?: SceneSnapshot;
   stale?: boolean;
+  fill?: boolean;
 }
 
 function roundRect(context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) {
@@ -14,7 +15,7 @@ function roundRect(context: CanvasRenderingContext2D, x: number, y: number, widt
   context.fill();
 }
 
-export function TopdownScene({ snapshot, stale = false }: TopdownSceneProps) {
+export function TopdownScene({ snapshot, stale = false, fill = false }: TopdownSceneProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -44,7 +45,7 @@ export function TopdownScene({ snapshot, stale = false }: TopdownSceneProps) {
       context.fillStyle = gradient;
       roundRect(context, 0, 0, w, h, 22);
 
-      const scale = Math.min(w, h) / 21;
+      const scale = Math.min(w, h) / (fill ? 23 : 21);
       const ox = w / 2;
       const oz = h * 0.82;
       const point = (x: number, z: number) => ({ x: ox + x * scale, y: oz + z * scale });
@@ -125,15 +126,17 @@ export function TopdownScene({ snapshot, stale = false }: TopdownSceneProps) {
         context.fillText(snapshot.threat.kind === "shadow" ? "SHADOW" : snapshot.threat.kind === "spider" ? "SPIDER" : "THREAT", threat.x, threat.y - 25);
         context.restore();
 
-        context.fillStyle = "rgba(6, 20, 17, .86)";
-        roundRect(context, 14, 14, 168, 58, 13);
-        context.textAlign = "left";
-        context.fillStyle = "#f1fff8";
-        context.font = "700 12px system-ui";
-        context.fillText(snapshot.phase.toUpperCase(), 27, 37);
-        context.fillStyle = "#a9cfbd";
-        context.font = "500 11px system-ui";
-        context.fillText(`${(snapshot.elapsedMs / 1_000).toFixed(1)} s · threat ${snapshot.threat.distance.toFixed(1)} m`, 27, 57);
+        if (!fill) {
+          context.fillStyle = "rgba(6, 20, 17, .86)";
+          roundRect(context, 14, 14, 168, 58, 13);
+          context.textAlign = "left";
+          context.fillStyle = "#f1fff8";
+          context.font = "700 12px system-ui";
+          context.fillText(snapshot.phase.toUpperCase(), 27, 37);
+          context.fillStyle = "#a9cfbd";
+          context.font = "500 11px system-ui";
+          context.fillText(`${(snapshot.elapsedMs / 1_000).toFixed(1)} s · threat ${snapshot.threat.distance.toFixed(1)} m`, 27, 57);
+        }
       } else {
         context.fillStyle = "rgba(223,246,234,.65)";
         context.font = "600 13px system-ui";
@@ -155,7 +158,7 @@ export function TopdownScene({ snapshot, stale = false }: TopdownSceneProps) {
     const observer = new ResizeObserver(draw);
     observer.observe(canvas);
     return () => observer.disconnect();
-  }, [snapshot, stale]);
+  }, [fill, snapshot, stale]);
 
-  return <canvas ref={canvasRef} className="topdown-canvas" aria-label="Live top-down view of the observer, social agents, and approaching threat" />;
+  return <canvas ref={canvasRef} className={`topdown-canvas${fill ? " topdown-canvas-fill" : ""}`} aria-label="Live top-down view of the observer, social agents, and approaching threat" />;
 }

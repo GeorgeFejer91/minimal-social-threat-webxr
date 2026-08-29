@@ -1,5 +1,13 @@
 # Project-memory changelog
 
+## 2026-08-29 — planar top-down and 3D main views
+
+- Removed the stylized participant-perspective 2D Canvas from the application and deleted its unused renderer. The user-facing main switch is now **Top-down / 3D**.
+- Reused the authoritative `TopdownScene` as a full-stage planar monitor on the trial route while retaining the same component in the PC companion. The complete visual stimulus remains the Three.js/WebXR view.
+- Preserved the single scenario clock, generated HRTF cue schedule, controls, logging, and bridge state across both views. A non-WebGL browser can still monitor and control the planar state but cannot display the complete 3D visual stimulus.
+- Updated responsive sizing so the planar Canvas fills the main stage and still yields vertical touch gestures for page scrolling.
+- Passed 42 unit tests, 18 production/source checks, TypeScript, lint, the production build, and diff integrity. A local production-browser pass confirmed the default **Top-down** selection, full-stage planar layout, clock/cue progression and automatic audio after **Start preview**, state continuity when switching to **3D view**, and audio teardown after **Reset**. The available browser exposed no WebGL, so it verified the explicit planar fallback rather than the unchanged 3D pixels.
+
 ## 2026-08-29 — continuous threat and social-behavior ramp
 
 - Extended the uninterrupted positive social baseline from 8 to 12 seconds and expanded the generated exchange into friendly calls, replies/acknowledgements, and soft group-like murmurs with smooth three-part pitch contours.

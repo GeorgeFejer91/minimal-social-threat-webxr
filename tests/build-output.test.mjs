@@ -26,7 +26,7 @@ test("vendored VDO.Ninja SDK 1.5.5 files retain the Affect Tracker hashes", asyn
 });
 
 test("application source cannot request microphone or camera capture", async () => {
-  const files = ["components/StudyApp.tsx", "components/ParticipantScene2D.tsx", "components/XrScene.tsx", "lib/scene-sync.ts", "lib/spatial-audio.ts"];
+  const files = ["components/StudyApp.tsx", "components/TopdownScene.tsx", "components/XrScene.tsx", "lib/scene-sync.ts", "lib/spatial-audio.ts"];
   const source = (await Promise.all(files.map((file) => readFile(new URL(file, root), "utf8")))).join("\n");
   assert.doesNotMatch(source, /getUserMedia|mediaDevices|audio:\s*true|video:\s*true/);
   assert.match(source, /audio: false, video: false/);
@@ -46,20 +46,20 @@ test("phone layout uses safe areas, touch targets, dynamic viewport height, and 
   assert.match(xrScene, /coarsePointer \? "pan-y" : "none"/);
 });
 
-test("main trial viewport switches between live 2D and 3D renderers", async () => {
-  const [studyApp, participantScene, xrScene, css] = await Promise.all([
+test("main trial viewport switches between live top-down and 3D renderers", async () => {
+  const [studyApp, topdownScene, xrScene, css] = await Promise.all([
     readFile(new URL("components/StudyApp.tsx", root), "utf8"),
-    readFile(new URL("components/ParticipantScene2D.tsx", root), "utf8"),
+    readFile(new URL("components/TopdownScene.tsx", root), "utf8"),
     readFile(new URL("components/XrScene.tsx", root), "utf8"),
     readFile(new URL("app/globals.css", root), "utf8"),
   ]);
   assert.match(studyApp, /type AppView = "landing" \| "trial" \| "companion"/);
   assert.match(studyApp, /view === "trial"/);
-  assert.match(studyApp, /const \[previewMode, setPreviewMode\] = useState<"2d" \| "3d">\("2d"\)/);
-  assert.match(studyApp, /previewMode === "2d" && <ParticipantScene2D snapshot=\{scene\}/);
+  assert.match(studyApp, /const \[previewMode, setPreviewMode\] = useState<"topdown" \| "3d">\("topdown"\)/);
+  assert.match(studyApp, /previewMode === "topdown" && <TopdownScene snapshot=\{scene\} fill/);
   assert.match(studyApp, /previewMode === "3d" \? "browser-xr-view" : "xr-prewarm"/);
   assert.match(studyApp, /visible=\{previewMode === "3d"\}/);
-  assert.match(studyApp, /aria-pressed=\{previewMode === "2d"\}[\s\S]*?2D view/);
+  assert.match(studyApp, /aria-pressed=\{previewMode === "topdown"\}[\s\S]*?Top-down/);
   assert.match(studyApp, /aria-pressed=\{previewMode === "3d"\}[\s\S]*?3D view/);
   assert.match(studyApp, /Start preview/);
   assert.match(studyApp, /Start immersive 3D/);
@@ -70,10 +70,11 @@ test("main trial viewport switches between live 2D and 3D renderers", async () =
   assert.match(studyApp, /value === "headset"/);
   assert.match(studyApp, /if \(!headsetHost\) return;.*startBroadcast/s);
   assert.doesNotMatch(studyApp, /contentReady|trial-ready/);
-  assert.match(participantScene, /snapshot\.agents/);
-  assert.match(participantScene, /drawThreat/);
-  assert.match(participantScene, /agent\.locomotion/);
-  assert.match(css, /\.participant-canvas/);
+  assert.match(topdownScene, /snapshot\.agents/);
+  assert.match(topdownScene, /snapshot\.threat/);
+  assert.match(topdownScene, /topdown-canvas-fill/);
+  assert.doesNotMatch(studyApp, /ParticipantScene2D/);
+  assert.match(css, /\.topdown-canvas-fill/);
   assert.match(css, /\.browser-xr-view/);
   assert.match(css, /\.scene-view-switch/);
   assert.match(css, /\.trial-transport/);
@@ -81,10 +82,9 @@ test("main trial viewport switches between live 2D and 3D renderers", async () =
 });
 
 test("gradual threat pressure drives authoritative displacement and motion-scaled animation", async () => {
-  const [scenario, sceneSync, participantScene, xrScene, audio] = await Promise.all([
+  const [scenario, sceneSync, xrScene, audio] = await Promise.all([
     readFile(new URL("lib/scenario.ts", root), "utf8"),
     readFile(new URL("lib/scene-sync.ts", root), "utf8"),
-    readFile(new URL("components/ParticipantScene2D.tsx", root), "utf8"),
     readFile(new URL("components/XrScene.tsx", root), "utf8"),
     readFile(new URL("lib/spatial-audio.ts", root), "utf8"),
   ]);
@@ -97,7 +97,6 @@ test("gradual threat pressure drives authoritative displacement and motion-scale
   assert.match(scenario, /avoidance/);
   assert.match(scenario, /locomotion/);
   assert.match(sceneSync, /agent\.locomotion < 0 \|\| agent\.locomotion > 1/);
-  assert.match(participantScene, /stride = gaitWave[\s\S]*?agent\.locomotion/);
   assert.match(xrScene, /motionEnergy = THREE\.MathUtils\.clamp\(agentState\.locomotion/);
   assert.match(xrScene, /gaitWave \* 0\.62 \* motionEnergy/);
   assert.match(audio, /const contour = cue\.kind === "murmur"/);
@@ -189,7 +188,7 @@ test("immersive entry automatically owns spatial audio without a separate settin
 test("a locally started browser preview runs the complete cue schedule without an audio setting", async () => {
   const study = await readFile(new URL("components/StudyApp.tsx", root), "utf8");
   assert.match(study, /const startPreview = useCallback\([\s\S]*?audioEngine\.enable\(\)[\s\S]*?setAudioEnabled\(true\)[\s\S]*?audioEngine\.update\(sceneRef\.current\)/);
-  assert.match(study, /Start preview runs the selected 2D or 3D renderer with the complete generated scene-audio schedule/);
+  assert.match(study, /Start preview runs the selected top-down or 3D viewport with the complete generated scene-audio schedule/);
   assert.doesNotMatch(study, /Enable spatial audio|Disable spatial audio|toggleSpatialAudio/);
 });
 
@@ -205,16 +204,14 @@ test("external human and retained spider reference assets are pinned and shipped
   }
 });
 
-test("spider renderers use the viewer-facing articulated gait rather than the static GLB", async () => {
-  const [motion, scenario, participantScene, xrScene] = await Promise.all([
+test("the 3D participant renderer uses the viewer-facing articulated gait rather than the static GLB", async () => {
+  const [motion, scenario, xrScene] = await Promise.all([
     readFile(new URL("lib/spider-motion.ts", root), "utf8"),
     readFile(new URL("lib/scenario.ts", root), "utf8"),
-    readFile(new URL("components/ParticipantScene2D.tsx", root), "utf8"),
     readFile(new URL("components/XrScene.tsx", root), "utf8"),
   ]);
   assert.match(motion, /alternating-tetrapod gait/);
   assert.match(scenario, /yaw: yawToward\(threatX, threatZ, 0, 0\)/);
-  assert.match(participantScene, /spiderMotionPose/);
   assert.match(xrScene, /viewer-facing-animated-spider/);
   assert.match(xrScene, /spiderMotionPose/);
   assert.match(xrScene, /threat\.rotation\.y = threatState\.yaw/);
@@ -222,38 +219,34 @@ test("spider renderers use the viewer-facing articulated gait rather than the st
   assert.doesNotMatch(xrScene, /spiderTwitch/);
 });
 
-test("both participant renderers consume the corridor-cleared procedural forest", async () => {
-  const [forest, participantScene, xrScene] = await Promise.all([
+test("the 3D participant renderer consumes the corridor-cleared procedural forest", async () => {
+  const [forest, xrScene] = await Promise.all([
     readFile(new URL("lib/forest-layout.ts", root), "utf8"),
-    readFile(new URL("components/ParticipantScene2D.tsx", root), "utf8"),
     readFile(new URL("components/XrScene.tsx", root), "utf8"),
   ]);
   assert.match(forest, /THREAT_CORRIDOR_HALF_WIDTH = 2\.4/);
   assert.match(forest, /forestTreeCorridorClearance/);
-  assert.match(participantScene, /FOREST_TREES/);
-  assert.match(participantScene, /drawForestTree2D/);
   assert.match(xrScene, /corridor-cleared-forest/);
   assert.match(xrScene, /makeForestTree/);
   assert.match(xrScene, /new THREE\.FogExp2/);
   assert.doesNotMatch(xrScene, /Math\.sin\(angle\) \* radius/);
 });
 
-test("participant renderers consume authoritative shadow visibility", async () => {
-  const [scenario, participantScene, xrScene] = await Promise.all([
+test("planar and 3D views consume authoritative shadow visibility", async () => {
+  const [scenario, topdownScene, xrScene] = await Promise.all([
     readFile(new URL("lib/scenario.ts", root), "utf8"),
-    readFile(new URL("components/ParticipantScene2D.tsx", root), "utf8"),
+    readFile(new URL("components/TopdownScene.tsx", root), "utf8"),
     readFile(new URL("components/XrScene.tsx", root), "utf8"),
   ]);
   assert.match(scenario, /THREAT_START_Z = -16/);
   assert.match(scenario, /visibility: threatVisibility/);
-  assert.match(participantScene, /globalAlpha = snapshot\.threat\.visibility/);
+  assert.match(topdownScene, /snapshot\.threat\.visibility/);
   assert.match(xrScene, /threatState\.visibility/);
 });
 
 test("facial expressions ship as SVG and render as vector meshes on the procedural head sphere", async () => {
-  const [faces, participantScene, xrScene] = await Promise.all([
+  const [faces, xrScene] = await Promise.all([
     readFile(new URL("lib/facial-expression.ts", root), "utf8"),
-    readFile(new URL("components/ParticipantScene2D.tsx", root), "utf8"),
     readFile(new URL("components/XrScene.tsx", root), "utf8"),
   ]);
   assert.match(faces, /BASE_FACE_EMOTIONS/);
@@ -263,7 +256,6 @@ test("facial expressions ship as SVG and render as vector meshes on the procedur
   assert.match(faces, /faceGeometryToSphereSvg/);
   assert.match(faces, /faceGeometryToSphereMeshData/);
   assert.match(faces, /u:\s*0\.25/);
-  assert.match(participantScene, /scenarioFaceGeometry/);
   assert.match(xrScene, /faceGeometryToSphereMeshData/);
   assert.match(xrScene, /new THREE\.BufferGeometry\(\)/);
   assert.match(xrScene, /isVectorFace/);

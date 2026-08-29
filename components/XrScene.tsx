@@ -611,7 +611,7 @@ const XrScene = forwardRef<XrSceneHandle, XrSceneProps>(function XrScene(
       renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
     } catch {
       onReady(false);
-      onStatus("The optional 3D preview needs a browser with WebGL enabled; the complete 2D trial remains available.");
+      onStatus("The 3D preview needs a browser with WebGL enabled; the planar top-down monitor remains available.");
       return;
     }
     renderer.xr.enabled = true;

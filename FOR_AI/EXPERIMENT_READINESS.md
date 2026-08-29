@@ -13,16 +13,16 @@
 - A 12-second positive interaction baseline followed by one uninterrupted 26/36-second threat trajectory; the first six seconds of motion are labeled emerging awareness rather than acting as a stationary detected gate.
 - Schema-v6 agent state exposes bounded awareness, fear, avoidance, and motion-derived locomotion. Code tests establish progressive displacement/spread and zero locomotion during hold; perceived naturalness and gradualism remain unvalidated.
 - Threat distance never below 1.8 m in the authoritative model.
-- Complete 2D trial, optional WebXR, pause/reset, bounded logging, and synchronization contracts.
-- The large main trial viewport switches between the authoritative live 2D Canvas and live Three.js renderer without changing the scenario state or clock.
+- Complete planar monitoring/control view, 3D browser stimulus, optional WebXR, pause/reset, bounded logging, and synchronization contracts.
+- The large main trial viewport switches between the authoritative live top-down Canvas and live Three.js renderer without changing the scenario state or clock.
 - Direct Start preview / Start immersive 3D controls, a shared clock whose authority moves to XR animation frames during immersion, and automatic data-link startup/discovery.
 - A dedicated headset host role, version-2 data-only operator transport, full versioned scenario controls, bounded per-request receipts, XR lifecycle/readback, and top-down/3D authoritative state reconstruction.
 - Remote VR/MR requests stage a local headset confirmation to preserve WebXR's trusted-user-activation boundary; they cannot silently enter immersive mode.
 - Three threat renderings and two avatar styles are explicit versioned configuration fields.
-- The spider rendering faces the observer and uses a deterministic alternating eight-leg gait in both 2D and 3D; this is software behavior, not biological or threat validation.
-- The virtual forest has a code-tested tree-and-canopy-free central threat corridor shared by 2D and 3D renderers; visual composition and frame-time still require physical-device acceptance.
+- The 3D spider rendering faces the observer and uses a deterministic alternating eight-leg gait; the planar monitor uses a labeled location marker. This is software behavior, not biological or threat validation.
+- The virtual 3D forest has a code-tested tree-and-canopy-free central threat corridor; visual composition and frame-time still require physical-device acceptance. The planar monitor intentionally omits decorative scenery.
 - Shared cubic-Bézier face geometry has seven compatible end states, deterministic pairwise/weighted morphing, committed planar/spherical SVG assets, and a tested texture-free sphere-vector projection with stable mesh topology; this establishes software behavior, not recognition validity.
-- Locally activated scene audio: **Start preview** automatically runs the schema-v6 HRTF cue schedule in either browser renderer, while trusted local VR/MR entry runs it with the listener following the XR camera. The positive baseline includes extended call/reply, acknowledgement, and group-like murmur prototypes with three-part pitch contours. There is no separate setting; reset/completion or XR exit disposes the relevant graph, and no microphone/camera is requested.
+- Locally activated scene audio: **Start preview** automatically runs the schema-v6 HRTF cue schedule in either browser view, while trusted local VR/MR entry runs it with the listener following the XR camera. The positive baseline includes extended call/reply, acknowledgement, and group-like murmur prototypes with three-part pitch contours. There is no separate setting; reset/completion or XR exit disposes the relevant graph, and no microphone/camera is requested.
 - The generated threat layers have deterministic, unit-tested parameters and separate IDs: PPS Kit-derived broadband burst localization across approach, followed by a three-second 70 Hz rough harmonic reconstruction at final approach. HRTF direction consumes authoritative `x/y/z` source coordinates, with upright threats at 1.55 m and the spider at 0.42 m; one −18→0 dB relative level law and propagation delay consume authoritative threat distance. This establishes software traceability only.
 - A 2026-08-29 earlier local-browser control check confirmed the then-current manual enable/disable behavior and clean graph teardown without console warnings. That activation policy was later superseded by R32; it is retained as historical evidence only and is not acceptance evidence for automatic immersive audio.
 
@@ -32,6 +32,8 @@ For any website-affecting change, local validation is necessary but not sufficie
 
 Public source `7346177` was packaged with the GitHub Pages base path and published as deployment commit `0ddf0e4`. A cache-busted HTTPS readback of `?view=trial&v=7346177` returned the current application and assets successfully. Interactive browser acceptance confirmed the large main-stage **2D view** and **3D view** controls, removal of the former mini-preview, scenario-clock advancement after **Start preview**, automatic activation of the complete generated cue schedule, and return to the inactive-audio state after **Reset**. The available verification browser intentionally exposed no WebGL, so it also confirmed the 2D fallback and explicit WebGL-unavailable status but could not visually judge the Three.js frame; current-source desktop-WebGL and physical-Quest rendering remain separate device checks.
 
+The later local production-browser pass for R36 confirmed that **Top-down** is now the default main view, its planar Canvas fills the stage without the removed stylized participant renderer, **Start preview** advances the authoritative clock and activates the complete cue schedule, switching to **3D view** preserves state, and **Reset** returns to 0.0 seconds with audio inactive. The available browser again exposed no WebGL, so this pass establishes the planar fallback and control lifecycle rather than new 3D-renderer acceptance. Public GitHub Pages acceptance for the R36 source remains pending until its exact revision is deployed.
+
 ## Required before study use
 
 1. Obtain the applicable ethics/IRB approval and define exclusion, withdrawal, and adverse-event procedures.
@@ -40,12 +42,12 @@ Public source `7346177` was packaged with the GitHub Pages base path and publish
 4. Pilot the shadow, angry-agent, and spider conditions for threat recognition, intensity, valence, arousal, agency, ambiguity, disgust, phobia burden, and demand characteristics. Screen/exclude spider-phobic participants unless the approved protocol intentionally includes them.
 5. Pilot social cues for gaze recognition, speaking/listening role, group naturalness, synchrony, perceived conversational exchange, and perceived contagion. Explicitly test whether locomotion reads as actual displacement rather than running-in-place.
 6. Manipulation-check the friendly tones for valence, arousal, tension, friendliness, and cultural familiarity separately from the full scene. Test the PPS burst layer, 70 Hz roughness layer, and their sequence separately before treating the combined audio as causal.
-7. Validate 2D phone and immersive XR presentations separately.
+7. Validate browser Three.js and immersive XR presentations separately; validate the planar view only as an operator monitor, not as an equivalent visual stimulus.
 8. Test localization, front/back confusions, distance perception, audio/visual co-location, and the effect of non-individual HRTFs.
 9. Measure presence, discomfort, simulator sickness, startle burden, hearing sensitivity, and participant stop behavior.
-10. Verify direct WebXR entry/start, non-frozen XR-frame clock progression, 2D-to-XR clock continuity, passthrough, right-controller A-button restart/resume, trigger pause, dedicated-headset auto-host, PC start/pause/resume/reset/configuration, locally confirmed remote VR/MR request, remote XR exit, exact receipt/readback reconciliation, network loss/stale recovery, logging, model loading/fallbacks, gradual threat depth change, staggered crowd awareness, escape-path spread, motion-scaled gait settling, shadow/spider fade, forest corridor clearance/occlusion, forest frame-time, and the invisible 1.8 m model limit on each physical device/browser version.
+10. Verify direct WebXR entry/start, non-frozen XR-frame clock progression, browser-to-XR clock continuity, passthrough, right-controller A-button restart/resume, trigger pause, dedicated-headset auto-host, PC start/pause/resume/reset/configuration, locally confirmed remote VR/MR request, remote XR exit, exact receipt/readback reconciliation, network loss/stale recovery, logging, model loading/fallbacks, gradual threat depth change, staggered crowd awareness, escape-path spread, motion-scaled gait settling, shadow/spider fade, forest corridor clearance/occlusion, forest frame-time, and the invisible 1.8 m model limit on each physical device/browser version.
 11. Freeze stimulus version, code revision, cue parameters, recordings, device configuration, random seed policy, preregistration, and analysis plan before collection.
-12. Validate the exact project-authored facial end states and intermediate transitions with the intended population. Report forced-choice and open-label recognition, confusion matrices (especially fear/surprise and anger/disgust), perceived intensity/valence/arousal, viewing distance, avatar style, 2D versus XR presentation, and cultural/language context.
+12. Validate the exact project-authored facial end states and intermediate transitions with the intended population. Report forced-choice and open-label recognition, confusion matrices (especially fear/surprise and anger/disgust), perceived intensity/valence/arousal, viewing distance, avatar style, browser 3D versus immersive XR presentation, and cultural/language context.
 
 ## Physical-device evidence recorded 2026-08-28
 
@@ -89,6 +91,6 @@ The main-stage sizing defect discovered during that run was fixed and republishe
 - Perceived distance and approach speed.
 - Perceived gradualism, continuity across logged phase labels, escape-path naturalness, and absence of running-in-place.
 - Agent gaze target, talking/listening roles, group cohesion, and naturalness.
-- Facial-expression identity, intensity, transition naturalness, fear/surprise and anger/disgust confusion, and recognition at actual crowd distance in both 2D and XR.
+- Facial-expression identity, intensity, transition naturalness, fear/surprise and anger/disgust confusion, and recognition at actual crowd distance in both browser 3D and immersive XR.
 - Audio direction, co-location, roughness, unpleasantness, and loudness.
 - Presence, discomfort, cybersickness, and willingness to continue.

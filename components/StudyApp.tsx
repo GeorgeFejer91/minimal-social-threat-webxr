@@ -2,7 +2,6 @@
 
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { XrSceneHandle } from "./XrScene";
-import { ParticipantScene2D } from "./ParticipantScene2D";
 import { TopdownScene } from "./TopdownScene";
 import {
   evaluateScenario,
@@ -143,7 +142,7 @@ export default function StudyApp() {
   const [audioEngine] = useState(() => new SpatialAudioEngine());
   const [xrActive, setXrActive] = useState(false);
   const [xrEngineReady, setXrEngineReady] = useState(false);
-  const [previewMode, setPreviewMode] = useState<"2d" | "3d">("2d");
+  const [previewMode, setPreviewMode] = useState<"topdown" | "3d">("topdown");
   const [xrStatus, setXrStatus] = useState("Preparing the optional 3D engine…");
   const [xrSupport, setXrSupport] = useState({ vr: false, ar: false, checked: false });
   const [xrPhase, setXrPhase] = useState<XrRuntimePhase>("inline");
@@ -616,12 +615,13 @@ export default function StudyApp() {
   }, [headsetHost, startBroadcast]);
 
   const startPreview = useCallback(() => {
-    setXrStatus(`Browser ${previewMode.toUpperCase()} preview running; starting the complete scene audio…`);
+    const viewLabel = previewMode === "topdown" ? "top-down" : "3D";
+    setXrStatus(`Browser ${viewLabel} preview running; starting the complete scene audio…`);
     void audioEngine.enable()
       .then(() => {
         setAudioEnabled(true);
         audioEngine.update(sceneRef.current);
-        setXrStatus(`Browser ${previewMode.toUpperCase()} preview running with the complete spatial cue schedule.`);
+        setXrStatus(`Browser ${viewLabel} preview running with the complete spatial cue schedule.`);
       })
       .catch((error: unknown) => {
         setAudioEnabled(false);
@@ -825,14 +825,14 @@ export default function StudyApp() {
             <h1>Run the social encounter<br />on any screen.</h1>
             <p className="hero-lede">
               A front-facing crowd of twelve game-like or human avatars wanders in six dyads, exchanges gaze, and trades friendly spatial tones. A distant threat approaches and becomes more visible;
-              alarm spreads unevenly through the group before they avoid it. Run the complete 2D or 3D browser preview with its generated spatial cues, or continue into VR and passthrough MR.
+              alarm spreads unevenly through the group before they avoid it. Monitor the authoritative positions in a planar top-down view, inspect the complete 3D scene with its generated spatial cues, or continue into VR and passthrough MR.
             </p>
             <div className="hero-actions">
               <button className="button primary" type="button" onClick={() => navigate("trial")}>Open the live preview <span>→</span></button>
               <button className="button ghost" type="button" onClick={() => navigate("companion")}>Open top-down companion</button>
             </div>
             <dl className="hero-facts">
-              <div><dt>2D</dt><dd>phone first</dd></div>
+              <div><dt>Plan</dt><dd>top-down</dd></div>
               <div><dt>6</dt><dd>social dyads</dd></div>
               <div><dt>1.8 m</dt><dd>hard threat limit</dd></div>
             </dl>
@@ -855,7 +855,7 @@ export default function StudyApp() {
       {view === "trial" && (
         <section className="workspace-shell">
           <header className="workspace-heading">
-            <div><p className="eyebrow"><span /> {headsetHost ? "Dedicated headset host" : "2D / 3D browser preview"}</p><h1>Run the encounter</h1></div>
+            <div><p className="eyebrow"><span /> {headsetHost ? "Dedicated headset host" : "Top-down / 3D browser preview"}</p><h1>Run the encounter</h1></div>
             <div className="support-chip"><span className="live-dot" />{headsetHost ? `Operator link ${broadcastPhase}` : "Browser preview ready · immersive XR optional"}</div>
           </header>
 
@@ -877,10 +877,10 @@ export default function StudyApp() {
             <div className="trial-stage">
               <section className="scene-panel participant-panel">
                 <div className="scene-view-switch" role="group" aria-label="Browser preview mode">
-                  <button type="button" disabled={xrActive} aria-pressed={previewMode === "2d"} onClick={() => setPreviewMode("2d")}>2D view</button>
+                  <button type="button" disabled={xrActive} aria-pressed={previewMode === "topdown"} onClick={() => setPreviewMode("topdown")}>Top-down</button>
                   <button type="button" disabled={xrActive} aria-pressed={previewMode === "3d"} onClick={() => setPreviewMode("3d")}>3D view</button>
                 </div>
-                {previewMode === "2d" && <ParticipantScene2D snapshot={scene} />}
+                {previewMode === "topdown" && <TopdownScene snapshot={scene} fill />}
                 <div className={previewMode === "3d" ? "browser-xr-view" : "xr-prewarm"} aria-hidden={previewMode !== "3d"}>
                   {shouldMountXr && (
                     <Suspense fallback={<div className="scene-loading" role="status">Preparing 3D scene…</div>}>
@@ -918,7 +918,7 @@ export default function StudyApp() {
                   <button className="button danger" type="button" disabled={!scene.running || isScenarioComplete(scene)} onClick={() => pauseScenario("trial")}>{scene.paused ? "Resume" : "Pause"}</button>
                   <button className="button ghost" type="button" onClick={() => resetScenario("trial")}>Reset</button>
                 </div>
-                <p className="trial-start-note" aria-live="polite">{audioEnabled ? `Scene audio active · ${previewMode.toUpperCase()} browser view · complete generated cue schedule` : "Start preview runs the selected 2D or 3D renderer with the complete generated scene-audio schedule. Begin at low device volume."}</p>
+                <p className="trial-start-note" aria-live="polite">{audioEnabled ? `Scene audio active · ${previewMode === "topdown" ? "top-down" : "3D"} browser view · complete generated cue schedule` : "Start preview runs the selected top-down or 3D viewport with the complete generated scene-audio schedule. Begin at low device volume."}</p>
               </section>
             </div>
 
@@ -953,7 +953,7 @@ export default function StudyApp() {
                   </label>
                   <label className="check-field"><input type="checkbox" checked={config.loop} disabled={scene.running && !isScenarioComplete(scene)} onChange={(event) => updateConfig("loop", event.target.checked)} />Loop after completion</label>
                 </div>
-                <p className="microcopy">Minimal and 2D human-proportioned faces share an evidence-grounded SVG morph system; procedural 3D faces use texture-free vector meshes conformed directly to the head sphere rather than a flat plate. The exact faces and transitions still require target-population validation. The human 3D option uses the CC BY 4.0 Cesium Man model. Avatar style does not change positions, timing, or behavior.</p>
+                <p className="microcopy">The top-down view is a schematic position monitor. Procedural 3D faces use an evidence-grounded SVG morph system rendered as texture-free vector meshes conformed directly to the head sphere rather than a flat plate. The exact faces and transitions still require target-population validation. The human 3D option uses the CC BY 4.0 Cesium Man model. Avatar style does not change positions, timing, or behavior.</p>
               </section>
 
               <section className="control-card xr-addon-card">
