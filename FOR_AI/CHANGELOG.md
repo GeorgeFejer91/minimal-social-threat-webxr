@@ -1,5 +1,12 @@
 # Project-memory changelog
 
+## 2026-10-01 — preserve recorder operator panel work
+
+- Preserved the existing local operator-panel implementation: stable `operator.html` entry, Remote Panel descriptor, explicit Connect in panel mode, and the existing allowlisted scene receiver/receipts. Ordinary companion discovery and trusted local WebXR confirmation remain unchanged.
+- The panel uses pinned Pretext 0.0.9 to allocate wrapped button height without reducing enlarged text. VDO SDK storage caches are disabled only when origin storage is unavailable; this adds no mutual operator authentication.
+- Passed 42 unit tests, production build, and 18 build-output checks. Enforced LF for the three vendor files so Windows checkouts retain their existing pinned hashes; no SDK source change was made.
+- Rendered narrow/zoom/localized-label, opaque recorder iframe, physical phone/Quest and exact Pages delivery checks remain pending. The available browser tool failed during initialization. This is preserved source work, not completed website delivery or study qualification.
+
 ## 2026-08-29 — planar top-down and 3D main views
 
 - Removed the stylized participant-perspective 2D Canvas from the application and deleted its unused renderer. The user-facing main switch is now **Top-down / 3D**.

@@ -2,6 +2,8 @@
 
 ## Shipped dependencies and assets
 
+Recorder operator-panel source adds `@chenglou/pretext` 0.0.9 (MIT, locked in `package-lock.json`) for measured wrapped button height. It is interface layout tooling, not stimulus or scientific validation. The existing VDO.Ninja 1.5.5 vendor source and hashes remain unchanged; only checkout LF policy is enforced.
+
 | Item | Use | Source | License/status | Citation action |
 | --- | --- | --- | --- | --- |
 | VDO.Ninja SDK 1.5.5 | Data-only discovery and WebRTC channel | https://github.com/steveseguin/ninjasdk/tree/v1.5.5 | MPL-2.0; readable source, minified distribution, and license are vendored with pinned hashes | Cite project/version in software methods; preserve notice and files. |
