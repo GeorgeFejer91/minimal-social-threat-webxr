@@ -24,6 +24,7 @@ import {
   type XrRuntimePhase,
 } from "../lib/scene-sync";
 import { SpatialAudioEngine } from "../lib/spatial-audio";
+import { fitPanelButtons } from "../lib/panel-text";
 
 type AppView = "landing" | "trial" | "companion";
 
@@ -129,6 +130,7 @@ function Nav({ current, onNavigate }: { current: AppView; onNavigate(view: AppVi
 }
 
 export default function StudyApp() {
+  const [panelMode, setPanelMode] = useState(false);
   const [view, setView] = useState<AppView>("landing");
   const [headsetHost, setHeadsetHost] = useState(false);
   const [config, setConfig] = useState<ScenarioConfig>(DEFAULT_CONFIG);
@@ -178,7 +180,9 @@ export default function StudyApp() {
   const [pendingCommand, setPendingCommand] = useState<PendingOperatorCommand | undefined>(undefined);
   const [lastCommandReceipt, setLastCommandReceipt] = useState<CommandReceipt | undefined>(undefined);
   const [companionViewport, setCompanionViewport] = useState<"3d" | "topdown">("3d");
-  const [companionStatus, setCompanionStatus] = useState("Companion mode connects automatically through the data-only VDO.Ninja link.");
+  const [companionStatus, setCompanionStatus] = useState(panelMode
+    ? "Panel ready. Select Connect to discover the public data-only scene."
+    : "Companion mode connects automatically through the data-only VDO.Ninja link.");
   const autoDiscoveryStartedRef = useRef(false);
 
   const bumpHostRevision = useCallback(() => {
@@ -229,8 +233,18 @@ export default function StudyApp() {
   }, []);
 
   useEffect(() => {
+    if (!panelMode) return;
+    document.body.classList.add("recorder-panel");
+    setCompanionStatus("Panel ready. Select Connect to discover the public data-only scene.");
+    return fitPanelButtons(document.querySelector("main")!);
+  }, [panelMode]);
+
+  useEffect(() => {
+    if (panelMode) return;
     const readView = () => {
-      const value = new URLSearchParams(window.location.search).get("view");
+      const params = new URLSearchParams(window.location.search);
+      const value = params.get("view");
+      setPanelMode(params.get("panel") === "1");
       const isHeadset = value === "headset";
       setHeadsetHost(isHeadset);
       setView(value === "trial" || value === "companion" ? value : isHeadset ? "trial" : "landing");
@@ -238,7 +252,7 @@ export default function StudyApp() {
     readView();
     addEventListener("popstate", readView);
     return () => removeEventListener("popstate", readView);
-  }, []);
+  }, [panelMode]);
 
   useEffect(() => {
     let cancelled = false;
@@ -598,6 +612,7 @@ export default function StudyApp() {
   }, []);
 
   useEffect(() => {
+    if (panelMode || new URLSearchParams(window.location.search).get("panel") === "1") return;
     if (view !== "companion") {
       autoDiscoveryStartedRef.current = false;
       return;
@@ -606,7 +621,7 @@ export default function StudyApp() {
     autoDiscoveryStartedRef.current = true;
     setCompanionStatus("Connecting automatically to the VDO.Ninja scene room…");
     void startDiscovery();
-  }, [startDiscovery, view]);
+  }, [panelMode, startDiscovery, view]);
 
   useEffect(() => {
     if (!headsetHost) return;
@@ -816,7 +831,7 @@ export default function StudyApp() {
 
   return (
     <main>
-      <Nav current={view} onNavigate={navigate} />
+      {!panelMode && <Nav current={view} onNavigate={navigate} />}
 
       {view === "landing" && (
         <section className="landing-shell">
@@ -1031,7 +1046,7 @@ export default function StudyApp() {
               <section className="control-card">
                 <div className="card-heading"><div><span>01</span><h2>Connection</h2></div><small className={receiverState.phase === "live" ? "online" : ""}>{receiverState.route}{receiverState.rttMs ? ` · ${receiverState.rttMs} ms` : ""}</small></div>
                 {receiverState.phase === "idle" || receiverState.phase === "error" ? (
-                  <button className="button primary" type="button" onClick={() => void startDiscovery()}>Reconnect via VDO.Ninja</button>
+                  <button className="button primary" type="button" onClick={() => void startDiscovery()}>{panelMode ? "Connect" : "Reconnect via VDO.Ninja"}</button>
                 ) : (
                   <button className="button ghost" type="button" onClick={() => void receiverRef.current?.stop()}>Disconnect</button>
                 )}

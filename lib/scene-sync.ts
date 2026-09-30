@@ -107,6 +107,8 @@ interface VdoSdk extends EventTarget {
   stopViewing?(streamId: string): Promise<void>;
   openChannel(uuid: string, label: string, options: Record<string, unknown>): Promise<RemoteChannel>;
   getPeerQuality?(uuid: string): Promise<{ relayed?: boolean; rttMs?: number }>;
+  _getStorage?: (...args: unknown[]) => unknown;
+  _setStorage?: (...args: unknown[]) => unknown;
 }
 
 declare global {
@@ -127,7 +129,17 @@ function sdkFactory(): VdoSdk {
   if (typeof globalThis.VDONinjaSDK !== "function") {
     throw new Error("The bundled VDO.Ninja SDK did not load.");
   }
-  return new globalThis.VDONinjaSDK(SDK_OPTIONS);
+  const sdk = new globalThis.VDONinjaSDK(SDK_OPTIONS);
+  let storageAvailable = false;
+  try { storageAvailable = Boolean(globalThis.localStorage); } catch { /* Opaque recorder panel. */ }
+  if (!storageAvailable) {
+    if (typeof sdk._getStorage !== "function" || typeof sdk._setStorage !== "function") {
+      throw new Error("The pinned VDO.Ninja SDK cache hooks are unavailable.");
+    }
+    sdk._getStorage = () => null;
+    sdk._setStorage = () => {};
+  }
+  return sdk;
 }
 
 function randomHex(bytes = 4) {
