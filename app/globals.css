@@ -14,6 +14,8 @@
 * { box-sizing: border-box; }
 html { background: var(--background); color: var(--ink); scroll-behavior: smooth; }
 body.recorder-panel { min-width: 0; }
+body.recorder-panel .companion-layout > * { min-width: 0; }
+body.recorder-panel .viewport-heading { flex-wrap: wrap; }
 body {
   margin: 0;
   min-width: 320px;

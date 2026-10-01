@@ -1,5 +1,11 @@
 # Project-memory changelog
 
+## 2026-10-01 — qualify saved operator panel layout
+
+- Headless Chromium verified the idle operator panel at 320×740, 390×844, 844×390 and 1280×900, plus 320 pixels with 200% button text and user letter/word spacing. Fixed the recorder panel's grid minimum width and allowed viewport controls to wrap; text size is preserved.
+- The sandboxed `allow-scripts allow-forms` iframe loaded with opaque storage and parent DOM access denied, and stayed idle until Connect. The local asset server supplied Pages-style wildcard CORS headers; this is a local embedding check, not proof of public delivery or a live signaling session.
+- Physical Quest/phone qualification, wider localization and exact Pages delivery remain pending.
+
 ## 2026-10-01 — preserve recorder operator panel work
 
 - Preserved the existing local operator-panel implementation: stable `operator.html` entry, Remote Panel descriptor, explicit Connect in panel mode, and the existing allowlisted scene receiver/receipts. Ordinary companion discovery and trusted local WebXR confirmation remain unchanged.
